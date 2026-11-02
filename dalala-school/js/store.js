@@ -47,7 +47,7 @@ function defaultSettings() {
     phone: '+218 21 000 0000', email: 'info@dalala.school', address: 'طرابلس — ليبيا', addressEn: 'Tripoli — Libya',
     year: '2026 / 2027', currency: 'د.ل', workDays: [0, 1, 2, 3, 4], periods: 7,
     startTime: '08:00', periodMinutes: 45, breakAfter: 3, breakMinutes: 20,
-    passMark: 50, bandExcellent: 85, bandVgood: 75, bandGood: 65, maxResit: 2, absenceWarn: 10, absenceLimit: 25, validateNid: true,
+    waCountryCode: '218', passMark: 50, bandExcellent: 85, bandVgood: 75, bandGood: 65, maxResit: 2, absenceWarn: 10, absenceLimit: 25, validateNid: true,
   };
 }
 
