@@ -40,6 +40,7 @@ const MENU = [
   { g: 'g_comm', items: [
     { id: 'announcements', icon: 'megaphone', roles: ALL },
     { id: 'calendar', icon: 'calendar', roles: ALL },
+    { id: 'messages', icon: 'whatsapp', roles: ['admin'] },
   ] },
   { g: 'g_system', items: [
     { id: 'reports', icon: 'chart', roles: ['admin', 'accountant'] },
@@ -49,7 +50,7 @@ const MENU = [
 ];
 const PAGES = {
   dashboard: renderDashboard, portal: renderPortal, attendance: renderAttendance, marks: renderMarks, reportcards: renderReportCards,
-  timetable: renderTimetable, certificates: renderCertificates, calendar: renderCalendar, reports: renderReports, settings: renderSettings, student: renderStudent,
+  timetable: renderTimetable, certificates: renderCertificates, messages: renderMessages, calendar: renderCalendar, reports: renderReports, settings: renderSettings, student: renderStudent,
   announcements: () => (can(ENT.announcements.edit) ? renderCrud('announcements') : pageHead(t('nav_announcements'), t('sub_announcements')) + `<div class="cards-grid">${visibleAnnouncements().map(annCard).join('') || emptyState(t('noData'))}</div>`),
 };
 const PAGE_ROLES = { student: ['admin', 'teacher', 'accountant'] };
@@ -231,6 +232,7 @@ const ACT = {
   'reset-demo': () => confirmBox(t('resetConfirm'), () => { DB.reset(); restoreSession(); if (!USER) { logout(); return; } toast(t('done')); render(); }),
   wipe: () => confirmBox(t('wipeConfirm'), () => { DB.wipe(); restoreSession(); if (!USER) { logout(); return; } toast(t('done')); render(); }),
 };
+Object.assign(ACT, ACT_EXTRA, { 'wa-student': el => waStudentCompose(el.dataset.id) });
 const CHG = {
   'crud-filter': el => { const st = crudState(el.dataset.key); st.f[el.dataset.f] = el.value; st.page = 1; render(); },
   'nav-param': el => setParam(el.dataset.param, el.value),

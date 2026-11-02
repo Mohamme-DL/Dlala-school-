@@ -351,6 +351,7 @@ function studentHeader(s, actions = '') {
 function renderStudent(p) {
   const s = DB.get('students', p.id); if (!s) return emptyState(t('notFound'));
   return studentHeader(s, `<a class="btn ghost" href="#/students">${icon(LANG === 'ar' ? 'chevR' : 'chevL')}<span>${t('back')}</span></a>
+    ${can(['admin', 'teacher']) ? `<button class="btn wa" data-act="wa-student" data-id="${s.id}">${icon('whatsapp')}<span>${t('waGuardian')}</span></button>` : ''}
     ${can(ENT.students.edit) ? `<button class="btn primary" data-act="crud-edit" data-key="students" data-id="${s.id}">${icon('edit')}<span>${t('edit')}</span></button>` : ''}`) + studentSections(s);
 }
 function renderPortal(p) {
@@ -436,6 +437,7 @@ function renderSettings() {
       <div class="field full"><span>${t('f_workDays')}</span><div class="days">${range(0, 6).map(d => `<label class="day"><input type="checkbox" name="wd" value="${d}" ${st.workDays.includes(d) ? 'checked' : ''}><span>${dayName(d)}</span></label>`).join('')}</div></div></div>
       <div class="form-actions"><button class="btn primary" type="button" data-act="settings-save">${icon('check')}<span>${t('save')}</span></button></div>`)}
     </form>
+    ${waSettingsCard()}
     ${card(t('dataManagement'), `<p class="hint">${t('dataHint')}</p><div class="btn-row">
       <button class="btn ghost" data-act="backup">${icon('download')}<span>${t('backup')}</span></button>
       <label class="btn ghost">${icon('upload')}<span>${t('restore')}</span><input type="file" accept="application/json,.json" hidden data-chg="restore"></label>
