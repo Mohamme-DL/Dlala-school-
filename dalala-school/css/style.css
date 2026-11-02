@@ -500,3 +500,22 @@ td.editable:hover .slot { outline: 2px solid var(--primary); outline-offset: -2p
 .howto { margin: 0; padding-inline-start: 20px; display: flex; flex-direction: column; gap: 6px; color: var(--muted); }
 @media (max-width: 760px) { .wa-row { grid-template-columns: 1fr; } }
 .sum-item .btn span { color: inherit; font-size: 14px; font-weight: 700; }
+
+/* ---------- several computers (network) ---------- */
+.net-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.net-badge .ic { width: 15px; height: 15px; }
+.net-badge.on { background: var(--ok-soft); color: var(--ok); }
+.net-badge.off { background: var(--bad-soft); color: var(--bad); }
+.net-boot { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; padding: 20px; background: var(--bg); color: var(--text); }
+.net-boot svg:first-child { width: 64px; height: 64px; }
+.net-boot.err b { color: #dc2626; } .net-boot p { color: var(--muted); max-width: 420px; }
+.net-modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin: 12px 0; }
+.net-mode { display: flex; flex-direction: column; gap: 4px; padding: 12px; border: 2px solid var(--line); border-radius: 12px; cursor: pointer; }
+.net-mode input { position: absolute; opacity: 0; pointer-events: none; }
+.net-mode small { color: var(--muted); font-size: 12px; }
+.net-mode.on { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, transparent); }
+.net-host-info { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin: 12px 0; padding: 12px; border-radius: 12px; background: var(--panel-2); }
+.net-host-info > div { display: flex; flex-direction: column; gap: 2px; } .net-host-info span { color: var(--muted); font-size: 12px; }
+.net-key { font-size: 18px; letter-spacing: 2px; font-family: Consolas, monospace; }
+@media (max-width: 700px) { .topbar .net-badge span { display: none; } }
+.net-c[hidden], #net-fields [hidden] { display: none !important; }

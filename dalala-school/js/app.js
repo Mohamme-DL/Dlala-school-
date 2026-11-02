@@ -126,7 +126,7 @@ function topbar(page) {
   const title = page === 'student' ? t('studentProfile') : t('nav_' + page);
   return `<header class="topbar"><button class="icon-btn only-m" data-act="menu">${icon('menu')}</button>
     <div class="crumbs"><span>${t('appName')}</span><b>${title}</b></div><span class="grow"></span>
-    <button class="btn ghost sm" data-act="lang" title="Language">${icon('globe')}<span>${LANG === 'ar' ? 'EN' : 'ع'}</span></button>
+    ${netBadge()}<button class="btn ghost sm" data-act="lang" title="Language">${icon('globe')}<span>${LANG === 'ar' ? 'EN' : 'ع'}</span></button>
     <button class="icon-btn" data-act="theme" title="${t('theme')}">${icon(isDark() ? 'sun' : 'moon')}</button>
     <div class="user-menu"><button class="user-b" data-act="user-menu">${avatar(USER)}<div><b>${esc(loc(USER))}</b><small>${t('role_' + USER.role)}</small></div></button>
       <div class="dropdown" hidden><button data-act="chpass">${icon('key')}<span>${t('changePassword')}</span></button><button data-act="logout" class="danger-t">${icon('logout')}<span>${t('logout')}</span></button></div></div>
@@ -145,6 +145,7 @@ function render() {
   const scrollY = window.__lastPage === page ? window.scrollY : 0; window.__lastPage = page;
   $('#app').innerHTML = `<div class="shell">${sidebar(page)}<div class="side-back" data-act="menu"></div><div class="main">${topbar(page)}<main class="content" id="content">${content}</main></div></div>`;
   window.scrollTo(0, scrollY);
+  if (page === 'settings' && $('#net-card')) setTimeout(netFillInfo, 0);
 }
 
 /* ---------- actions ---------- */
@@ -232,8 +233,17 @@ const ACT = {
   'reset-demo': () => confirmBox(t('resetConfirm'), () => { DB.reset(); restoreSession(); if (!USER) { logout(); return; } toast(t('done')); render(); }),
   wipe: () => confirmBox(t('wipeConfirm'), () => { DB.wipe(); restoreSession(); if (!USER) { logout(); return; } toast(t('done')); render(); }),
 };
+Object.assign(ACT, {
+  'net-test': async () => { const host = $('#net-host').value.trim(), port = +$('#net-port').value || 47630, key = $('#net-key').value.trim();
+    if (!host) { toast(t('netHostAddr'), 'err'); return; } const r = await window.dalalaNet.test({ host, port, key });
+    toast(r.ok ? (r.keyOk ? t('netTestOk') : t('netBadKey')) : t('netCantReach') + ' — ' + (r.error || ''), r.ok && r.keyOk ? 'ok' : 'err'); },
+  'net-save': () => { const mode = ($('input[name=net-mode]:checked') || {}).value || 'local'; const cfg = { mode, port: +$('#net-port').value || 47630 };
+    if (mode === 'client') { cfg.host = $('#net-host').value.trim(); cfg.key = $('#net-key').value.trim(); if (!cfg.host || !cfg.key) { toast(t('netNeedHostKey'), 'err'); return; } }
+    confirmBox(t('netRestartConfirm'), () => window.dalalaNet.set(cfg), { danger: false }); },
+});
 Object.assign(ACT, ACT_EXTRA, { 'wa-student': el => waStudentCompose(el.dataset.id) });
 const CHG = {
+  'net-mode': () => netModeFields(),
   'crud-filter': el => { const st = crudState(el.dataset.key); st.f[el.dataset.f] = el.value; st.page = 1; render(); },
   'nav-param': el => setParam(el.dataset.param, el.value),
   restore: el => {
@@ -272,6 +282,5 @@ window.addEventListener('hashchange', () => { closeModal(); render(); });
 matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => render());
 
 if (!(window.dalalaDesktop && window.dalalaDesktop.licensed)) { try { window.stop(); } catch (e) {} document.documentElement.innerHTML = '<head><meta charset="utf-8"><title>Dalala</title></head><body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#0f172a;color:#e2e8f0;font-family:Segoe UI,Tahoma,sans-serif;text-align:center;padding:20px"><div><div style="font-size:54px">🔒</div><h2 style="margin:10px 0">هذه النسخة تعمل فقط من خلال البرنامج المرخّص</h2><p style="color:#94a3b8">This copy only runs inside the licensed Dalala application.</p></div></body>'; throw new Error('unlicensed'); }
-DB.load();
-restoreSession();
-render();
+if (NET_BOOT) NET_BOOT(() => { restoreSession(); render(); });
+else { DB.load(); restoreSession(); render(); }

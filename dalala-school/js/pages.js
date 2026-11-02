@@ -441,6 +441,7 @@ function renderSettings() {
       <div><span>${t('licenseExpiry')}</span><b>${window.dalalaDesktop.expiry ? fmtDate(window.dalalaDesktop.expiry) : t('lifetime')}</b></div>
       <div><span>${t('deviceCode')}</span><b class="ltr">${esc(window.dalalaDesktop.deviceId)}</b></div><div><span>${t('licenseIssued')}</span><b>${window.dalalaDesktop.issued ? fmtDate(window.dalalaDesktop.issued) : '—'}</b></div></div>`) : ''}
     ${waSettingsCard()}
+    ${netSettingsCard()}
     ${card(t('dataManagement'), `<p class="hint">${t('dataHint')}</p><div class="btn-row">
       <button class="btn ghost" data-act="backup">${icon('download')}<span>${t('backup')}</span></button>
       <label class="btn ghost">${icon('upload')}<span>${t('restore')}</span><input type="file" accept="application/json,.json" hidden data-chg="restore"></label>
