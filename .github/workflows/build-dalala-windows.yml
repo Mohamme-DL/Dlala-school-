@@ -14,7 +14,11 @@ jobs:
       run:
         working-directory: dalala-school/desktop
     steps:
+      # Only check out the school system: other folders in this repo contain paths too long for Windows
       - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            dalala-school
 
       - uses: actions/setup-node@v4
         with:
