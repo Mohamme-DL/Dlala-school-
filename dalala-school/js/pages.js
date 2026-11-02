@@ -437,6 +437,9 @@ function renderSettings() {
       <div class="field full"><span>${t('f_workDays')}</span><div class="days">${range(0, 6).map(d => `<label class="day"><input type="checkbox" name="wd" value="${d}" ${st.workDays.includes(d) ? 'checked' : ''}><span>${dayName(d)}</span></label>`).join('')}</div></div></div>
       <div class="form-actions"><button class="btn primary" type="button" data-act="settings-save">${icon('check')}<span>${t('save')}</span></button></div>`)}
     </form>
+    ${window.dalalaDesktop && window.dalalaDesktop.licensed ? card(`🔒 ${t('licenseInfo')}`, `<div class="info-grid"><div><span>${t('licensedTo')}</span><b>${esc(window.dalalaDesktop.customer || '—')}</b></div>
+      <div><span>${t('licenseExpiry')}</span><b>${window.dalalaDesktop.expiry ? fmtDate(window.dalalaDesktop.expiry) : t('lifetime')}</b></div>
+      <div><span>${t('deviceCode')}</span><b class="ltr">${esc(window.dalalaDesktop.deviceId)}</b></div><div><span>${t('licenseIssued')}</span><b>${window.dalalaDesktop.issued ? fmtDate(window.dalalaDesktop.issued) : '—'}</b></div></div>`) : ''}
     ${waSettingsCard()}
     ${card(t('dataManagement'), `<p class="hint">${t('dataHint')}</p><div class="btn-row">
       <button class="btn ghost" data-act="backup">${icon('download')}<span>${t('backup')}</span></button>
