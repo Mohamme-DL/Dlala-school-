@@ -23,6 +23,7 @@ const MENU = [
     { id: 'exams', icon: 'file', roles: ['admin', 'teacher'] },
     { id: 'marks', icon: 'pencil', roles: ['admin', 'teacher'] },
     { id: 'reportcards', icon: 'award', roles: ['admin', 'teacher'] },
+    { id: 'certificates', icon: 'file', roles: ['admin'] },
     { id: 'homework', icon: 'clipboard', roles: ['admin', 'teacher'] },
   ] },
   { g: 'g_staff', items: [{ id: 'employees', icon: 'briefcase', roles: ['admin'] }] },
@@ -48,7 +49,7 @@ const MENU = [
 ];
 const PAGES = {
   dashboard: renderDashboard, portal: renderPortal, attendance: renderAttendance, marks: renderMarks, reportcards: renderReportCards,
-  timetable: renderTimetable, calendar: renderCalendar, reports: renderReports, settings: renderSettings, student: renderStudent,
+  timetable: renderTimetable, certificates: renderCertificates, calendar: renderCalendar, reports: renderReports, settings: renderSettings, student: renderStudent,
   announcements: () => (can(ENT.announcements.edit) ? renderCrud('announcements') : pageHead(t('nav_announcements'), t('sub_announcements')) + `<div class="cards-grid">${visibleAnnouncements().map(annCard).join('') || emptyState(t('noData'))}</div>`),
 };
 const PAGE_ROLES = { student: ['admin', 'teacher', 'accountant'] };
@@ -202,7 +203,7 @@ const ACT = {
   'rc-print': el => printHTML(reportCardHTML(DB.get('students', el.dataset.sid), el.dataset.term)),
   'rc-print-all': el => printHTML(studentsOfClass(el.dataset.cid).map(s => reportCardHTML(s, el.dataset.term)).join('<div class="pbreak"></div>')),
   'rc-export': el => {
-    const cls = DB.get('classes', el.dataset.cid); const subs = subjectsForGrade(cls.grade);
+    const cls = DB.get('classes', el.dataset.cid); const subs = subjectsForClass(cls);
     exportCSV('results-' + classLabel(cls).replace(/\s/g, ''), [t('rank'), t('f_code'), t('f_name'), ...subs.map(s => loc(s)), t('average'), t('gradeLbl')],
       classResults(cls.id, el.dataset.term).map(x => [x.rank || '', x.s.code, loc(x.s), ...x.r.subjects.map(s => s.p ?? ''), x.r.avg ?? '', gradeLetter(x.r.avg).letter]));
   },
@@ -211,9 +212,17 @@ const ACT = {
   'cal-day': (el, e) => { if (e.target.closest('[data-act="cal-ev"]')) return; openForm('events', null, { date: el.dataset.date }); },
   'cal-ev': el => openForm('events', el.dataset.id),
   'rep-export': el => reportExport(el.dataset.what),
+  'cert-seats': el => confirmBox(t('assignSeatsQ'), () => assignSeats(+el.dataset.g), { danger: false, okLabel: t('assignSeats') }),
+  'cert-export': el => exportCSV(`candidates-grade${el.dataset.g}`, certHeaders(), certRows(+el.dataset.g)),
+  'cert-print': el => printHTML(`${printHeader(t(+el.dataset.g === 9 ? 'cert9' : 'cert12') + ' — ' + t('candidates'))}<table class="ptable small"><thead><tr><th>#</th>${certHeaders().slice(0, 9).map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>
+    ${certRows(+el.dataset.g).map((r, i) => `<tr><td>${i + 1}</td>${r.slice(0, 9).map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table><div class="psign"><div>${t('f_supervision')}</div><div>${t('principal')}: ${esc(loc(S(), 'principal'))}</div><div>${t('stamp')}</div></div>`),
   'settings-save': () => {
-    const f = $('#settings-form'); const st = S(); const num = ['passMark', 'periods', 'periodMinutes', 'breakAfter', 'breakMinutes'];
-    ['schoolName', 'schoolNameEn', 'principal', 'principalEn', 'address', 'addressEn', 'phone', 'email', 'year', 'currency', 'startTime', ...num].forEach(k => { if (f.elements[k]) st[k] = num.includes(k) ? Number(f.elements[k].value) || 0 : f.elements[k].value.trim(); });
+    const f = $('#settings-form'); const st = S(); const num = ['passMark', 'periods', 'periodMinutes', 'breakAfter', 'breakMinutes', 'maxResit', 'bandExcellent', 'bandVgood', 'bandGood', 'absenceWarn', 'absenceLimit'];
+    const nb = num.map(k => f.elements[k] ? +f.elements[k].value : 0);
+    const [pm, , , , , , be, bv, bg] = nb;
+    if (!(be > bv && bv > bg && bg > pm)) { toast(t('errBands'), 'err'); return; }
+    st.validateNid = f.elements.validateNid.checked;
+    ['country', 'schoolType', 'ministry', 'ministryEn', 'supervision', 'supervisionEn', 'municipality', 'schoolCode', 'schoolName', 'schoolNameEn', 'principal', 'principalEn', 'address', 'addressEn', 'phone', 'email', 'year', 'currency', 'startTime', ...num].forEach(k => { if (f.elements[k]) st[k] = num.includes(k) ? Number(f.elements[k].value) || 0 : f.elements[k].value.trim(); });
     st.workDays = $$('input[name=wd]:checked', f).map(i => +i.value);
     if (!st.workDays.length) st.workDays = [0, 1, 2, 3, 4];
     DB.save(); toast(t('saved')); render();

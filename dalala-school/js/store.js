@@ -1,7 +1,7 @@
 /* Dalala School System — local data store (localStorage) + demo seed */
 'use strict';
 
-const DB_KEY = 'dalala_school_db_v1';
+const DB_KEY = 'dalala_school_db_v2';
 const COLS = ['students', 'employees', 'classes', 'subjects', 'exams', 'homework', 'behavior', 'admissions',
   'feeTypes', 'invoices', 'payments', 'books', 'loans', 'buses', 'announcements', 'events', 'users'];
 
@@ -39,11 +39,15 @@ const DB = {
 
 function defaultSettings() {
   return {
-    schoolName: 'مدارس دلالة النموذجية', schoolNameEn: 'Dalala Model Schools',
+    country: 'LY', schoolName: 'مدارس دلالة النموذجية', schoolNameEn: 'Dalala Model Schools',
+    ministry: 'وزارة التربية والتعليم', ministryEn: 'Ministry of Education',
+    supervision: 'مراقبة التربية والتعليم — طرابلس', supervisionEn: 'Education Supervision Office — Tripoli',
+    municipality: 'طرابلس', schoolCode: '', schoolType: 'private',
     principal: 'أ. عبدالرحمن السالم', principalEn: 'Mr. Abdulrahman Al-Salem',
-    phone: '+000 000 0000', email: 'info@dalala.school', address: 'المدينة — الحي التعليمي', addressEn: 'Education District',
-    year: '2026 / 2027', currency: 'USD', workDays: [0, 1, 2, 3, 4], periods: 7,
-    startTime: '07:30', periodMinutes: 45, breakAfter: 3, breakMinutes: 20, passMark: 50,
+    phone: '+218 21 000 0000', email: 'info@dalala.school', address: 'طرابلس — ليبيا', addressEn: 'Tripoli — Libya',
+    year: '2026 / 2027', currency: 'د.ل', workDays: [0, 1, 2, 3, 4], periods: 7,
+    startTime: '08:00', periodMinutes: 45, breakAfter: 3, breakMinutes: 20,
+    passMark: 50, bandExcellent: 85, bandVgood: 75, bandGood: 65, maxResit: 2, absenceWarn: 10, absenceLimit: 25, validateNid: true,
   };
 }
 
@@ -67,54 +71,62 @@ function seedData() {
     const [fa, fe] = gender === 'male' ? [mAr[i], mEn[i]] : [fAr[i], fEn[i]];
     return { name: `${fa} ${mAr[j]} ${lAr[k]}`, nameEn: `${fe} ${mEn[j]} ${lEn[k]}`, fatherAr: `${mAr[j]} ${lAr[k]}`, fatherEn: `${mEn[j]} ${lEn[k]}` };
   };
-  const phone = () => '09' + Math.floor(10000000 + rnd() * 89999999);
+  const phone = () => '09' + pick(['1', '2', '4', '5']) + String(Math.floor(1000000 + rnd() * 8999999));
+  const nid = (g, dob) => `${g === 'male' ? 1 : 2}${String(dob).slice(0, 4)}${String(Math.floor(1000000 + rnd() * 8999999))}`;
+  const cities = ['طرابلس', 'طرابلس', 'طرابلس', 'جنزور', 'تاجوراء', 'سوق الجمعة', 'مصراتة', 'الزاوية', 'بنغازي', 'غريان'];
+  const moms = ['خديجة', 'زينب', 'فاطمة', 'عائشة', 'حليمة', 'سعاد', 'نجاة', 'سالمة', 'مبروكة', 'حواء', 'أسماء', 'منى'];
 
   /* subjects */
+  // Libyan curriculum (basic education 1-9, secondary 10-12 with scientific / literary tracks)
   const subjDefs = [
-    ['ARB', 'اللغة العربية', 'Arabic Language', 1, 12, 6], ['ENG', 'اللغة الإنجليزية', 'English Language', 1, 12, 5],
-    ['MTH', 'الرياضيات', 'Mathematics', 1, 12, 6], ['ISL', 'التربية الإسلامية', 'Islamic Education', 1, 12, 3],
-    ['SCI', 'العلوم', 'Science', 1, 9, 4], ['SOC', 'الدراسات الاجتماعية', 'Social Studies', 4, 9, 2],
-    ['CMP', 'الحاسوب', 'Computer Science', 4, 12, 2], ['ART', 'التربية الفنية', 'Art Education', 1, 6, 1],
-    ['PE', 'التربية البدنية', 'Physical Education', 1, 12, 2], ['PHY', 'الفيزياء', 'Physics', 10, 12, 4],
-    ['CHM', 'الكيمياء', 'Chemistry', 10, 12, 3], ['BIO', 'الأحياء', 'Biology', 10, 12, 3],
+    ['QUR', 'القرآن الكريم', 'Holy Quran', 1, 12, 3, 'all'], ['ISL', 'التربية الإسلامية', 'Islamic Education', 1, 12, 2, 'all'],
+    ['ARB', 'اللغة العربية', 'Arabic Language', 1, 12, 6, 'all'], ['ENG', 'اللغة الإنجليزية', 'English Language', 1, 12, 4, 'all'],
+    ['MTH', 'الرياضيات', 'Mathematics', 1, 12, 5, 'all'], ['SCI', 'العلوم', 'Science', 1, 9, 4, 'all'],
+    ['SOC', 'الدراسات الاجتماعية', 'Social Studies', 4, 9, 2, 'all'], ['NAT', 'التربية الوطنية', 'Civic Education', 4, 9, 1, 'all'],
+    ['CMP', 'الحاسوب', 'Computer Science', 4, 12, 2, 'all'], ['ART', 'التربية الفنية', 'Art Education', 1, 6, 1, 'all'],
+    ['PE', 'التربية البدنية', 'Physical Education', 1, 12, 1, 'all'],
+    ['PHY', 'الفيزياء', 'Physics', 10, 12, 4, 'scientific'], ['CHM', 'الكيمياء', 'Chemistry', 10, 12, 3, 'scientific'], ['BIO', 'الأحياء', 'Biology', 10, 12, 3, 'scientific'],
+    ['HIS', 'التاريخ', 'History', 10, 12, 3, 'literary'], ['GEO', 'الجغرافيا', 'Geography', 10, 12, 3, 'literary'],
+    ['PHI', 'الفلسفة والمنطق', 'Philosophy & Logic', 10, 12, 2, 'literary'], ['SOS', 'علم الاجتماع', 'Sociology', 10, 12, 2, 'literary'],
   ];
-  const subjects = subjDefs.map(([code, name, nameEn, fromGrade, toGrade, weeklyHours]) => ({ id: id(), code, name, nameEn, fromGrade, toGrade, weeklyHours }));
+  const subjects = subjDefs.map(([code, name, nameEn, fromGrade, toGrade, weeklyHours, track]) => ({ id: id(), code, name, nameEn, fromGrade, toGrade, weeklyHours, track }));
 
   /* classes */
   const classes = [];
-  range(1, 12).forEach(g => ['A', 'B'].forEach((sec, i) => classes.push({ id: id(), grade: g, section: sec, room: `${g < 7 ? 1 : g < 10 ? 2 : 3}${String(g).padStart(2, '0')}${i + 1}`, capacity: 30 })));
+  range(1, 12).forEach(g => ['A', 'B'].forEach((sec, i) => classes.push({ id: id(), grade: g, section: sec, track: g >= 10 ? (i ? 'literary' : 'scientific') : 'general', room: `${g < 7 ? 1 : g < 10 ? 2 : 3}${String(g).padStart(2, '0')}${i + 1}`, capacity: 30 })));
 
   /* employees */
   const employees = []; let ec = 0;
   const addEmp = (role, extra = {}) => {
     const g = rnd() < 0.5 ? 'male' : 'female', p = person(g);
-    const e = { id: id(), code: `EMP-${String(++ec).padStart(5, '0')}`, name: p.name, nameEn: p.nameEn, gender: g, role, phone: phone(),
+    const e = { id: id(), code: `EMP-${String(++ec).padStart(5, '0')}`, name: p.name, nameEn: p.nameEn, gender: g, role, phone: phone(), nationalId: nid(g, String(1965 + Math.floor(rnd() * 30))),
       email: `${p.nameEn.split(' ')[0].toLowerCase()}${ec}@dalala.school`, qualification: pick(['bachelor', 'bachelor', 'master', 'diploma', 'phd']),
-      hireDate: iso(new Date(2010 + Math.floor(rnd() * 15), Math.floor(rnd() * 12), 1 + Math.floor(rnd() * 27))), salary: 1500 + Math.floor(rnd() * 20) * 100, status: 'active', ...extra };
+      hireDate: iso(new Date(2010 + Math.floor(rnd() * 15), Math.floor(rnd() * 12), 1 + Math.floor(rnd() * 27))), salary: 1200 + Math.floor(rnd() * 20) * 100, status: 'active', ...extra };
     employees.push(e); return e;
   };
   addEmp('principal', { name: settings.principal.replace('أ. ', ''), nameEn: settings.principalEn.replace('Mr. ', ''), gender: 'male' });
   addEmp('vice'); addEmp('accountant'); addEmp('admin'); addEmp('librarian'); addEmp('counselor'); addEmp('nurse');
   const drivers = range(1, 4).map(() => addEmp('driver', { gender: 'male', qualification: 'diploma' }));
   subjects.forEach(s => {
-    const need = sum(classes.filter(c => c.grade >= s.fromGrade && c.grade <= s.toGrade), () => s.weeklyHours);
+    const need = sum(classes.filter(c => subjectsForGradeIn([s], c).length), () => s.weeklyHours);
     range(1, Math.max(1, Math.ceil(need / 26))).forEach(() => addEmp('teacher', { subjectId: s.id }));
   });
   const tch = employees.filter(e => e.role === 'teacher');
   classes.forEach((c, i) => { c.teacherId = tch[(i * 7) % tch.length].id; });
 
   /* buses */
-  const routes = [['الحي الشمالي — شارع الجامعة', 'North district — University St.'], ['الحي الشرقي — السوق', 'East district — Market'], ['الحي الغربي — الكورنيش', 'West district — Corniche'], ['الحي الجنوبي — المستشفى', 'South district — Hospital']];
+  const routes = [['جنزور — الدريبي — قرقارش', 'Janzour — Dreibi — Gargaresh'], ['تاجوراء — عين زارة', 'Tajoura — Ain Zara'], ['سوق الجمعة — الهضبة', 'Souq Al-Juma — Al-Hadba'], ['أبوسليم — طريق المطار', 'Abu Salim — Airport Rd.']];
   const buses = drivers.map((d, i) => ({ id: id(), number: `BUS-${i + 1}`, plate: `${10 + i * 7}-${4000 + i * 311}`, driverName: d.name, driverPhone: d.phone, route: routes[i][0], routeEn: routes[i][1], capacity: 30 }));
 
   /* students */
   const students = []; let sc = 0; const year = new Date().getFullYear();
   classes.forEach(c => range(1, 6).forEach(() => {
     const g = rnd() < 0.5 ? 'male' : 'female', p = person(g);
-    students.push({ id: id(), code: `STD-${String(++sc).padStart(5, '0')}`, name: p.name, nameEn: p.nameEn, gender: g,
-      dob: iso(new Date(year - c.grade - 6, Math.floor(rnd() * 12), 1 + Math.floor(rnd() * 27))), classId: c.id,
-      nationalId: String(Math.floor(1e11 + rnd() * 9e11)), guardianName: p.fatherAr, guardianNameEn: p.fatherEn, guardianRelation: 'father',
-      guardianPhone: phone(), address: pick(routes)[0], busId: rnd() < 0.4 ? pick(buses).id : '', enrollDate: iso(new Date(year - Math.floor(rnd() * Math.min(c.grade, 6)), 8, 1)),
+    const dob = iso(new Date(year - c.grade - 6, Math.floor(rnd() * 12), 1 + Math.floor(rnd() * 27)));
+    students.push({ id: id(), code: `STD-${String(++sc).padStart(5, '0')}`, name: p.name, nameEn: p.nameEn, gender: g, dob, classId: c.id,
+      motherName: `${pick(moms)} ${pick(lAr)}`, birthPlace: pick(cities), nationality: 'libyan', nationalId: nid(g, dob), familyRegNo: String(Math.floor(100000 + rnd() * 899999)),
+      guardianName: p.fatherAr, guardianNameEn: p.fatherEn, guardianRelation: 'father',
+      guardianPhone: phone(), address: pick(cities), busId: rnd() < 0.4 ? pick(buses).id : '', enrollDate: iso(new Date(year - Math.floor(rnd() * Math.min(c.grade, 6)), 8, 1)),
       status: 'active', medical: rnd() < 0.08 ? pick(['ربو خفيف', 'حساسية من الفول السوداني', 'يرتدي نظارة طبية']) : '' });
   }));
   // siblings for the demo parent account
@@ -126,7 +138,7 @@ function seedData() {
   const tt = {}; const busy = new Set(); const load = {};
   const days = settings.workDays, P = settings.periods;
   classes.forEach(c => {
-    const list = []; subjectsForGradeIn(subjects, c.grade).forEach(s => range(1, s.weeklyHours).forEach(() => list.push(s)));
+    const list = []; subjectsForGradeIn(subjects, c).forEach(s => range(1, s.weeklyHours).forEach(() => list.push(s)));
     const grid = {}; const slots = list.slice(0, days.length * P).map((s, i) => ({ s, d: days[i % days.length], p: (Math.floor(i / days.length) + 2 * (i % days.length) + c.grade) % P }));
     const bySub = {}; slots.forEach(x => (bySub[x.s.id] = bySub[x.s.id] || []).push(x));
     Object.entries(bySub).forEach(([sid, sl]) => {
@@ -147,7 +159,7 @@ function seedData() {
     if (isWork(d)) {
       classes.forEach(c => {
         const rec = {};
-        students.filter(s => s.classId === c.id).forEach(s => { const r = rnd(); rec[s.id] = r < 0.9 ? 'P' : r < 0.95 ? 'A' : r < 0.98 ? 'L' : 'E'; });
+        students.filter(s => s.classId === c.id).forEach(s => { const r = rnd(); rec[s.id] = r < 0.925 ? 'P' : r < 0.955 ? 'A' : r < 0.98 ? 'L' : 'E'; });
         att[`${d}|${c.id}`] = rec;
       });
       n++;
@@ -156,27 +168,29 @@ function seedData() {
   }
 
   /* exams & marks */
+  // Libyan model: coursework (أعمال الفصل) 40 + end-of-term exam 60 for each of the two terms
   const exams = [
-    { id: id(), title: 'اختبار الشهر الأول', titleEn: 'First Monthly Test', term: 1, type: 'monthly', date: addDays(T, -30), maxMark: 20 },
-    { id: id(), title: 'اختبار منتصف الفصل', titleEn: 'Midterm Exam', term: 1, type: 'midterm', date: addDays(T, -8), maxMark: 30 },
-    { id: id(), title: 'الاختبار النهائي — الفصل الأول', titleEn: 'Term 1 Final Exam', term: 1, type: 'final', date: addDays(T, 45), maxMark: 50 },
-    { id: id(), title: 'اختبار الشهر الأول — الفصل الثاني', titleEn: 'Term 2 Monthly Test', term: 2, type: 'monthly', date: addDays(T, 100), maxMark: 20 },
+    { id: id(), title: 'أعمال الفصل الأول — الفترة الأولى', titleEn: 'Term 1 coursework — period 1', term: 1, type: 'coursework', date: addDays(T, -30), maxMark: 20 },
+    { id: id(), title: 'أعمال الفصل الأول — الفترة الثانية', titleEn: 'Term 1 coursework — period 2', term: 1, type: 'coursework', date: addDays(T, -6), maxMark: 20 },
+    { id: id(), title: 'امتحان الفصل الأول', titleEn: 'Term 1 exam', term: 1, type: 'final', date: addDays(T, 45), maxMark: 60 },
+    { id: id(), title: 'أعمال الفصل الثاني', titleEn: 'Term 2 coursework', term: 2, type: 'coursework', date: addDays(T, 110), maxMark: 40 },
+    { id: id(), title: 'امتحان الفصل الثاني', titleEn: 'Term 2 exam', term: 2, type: 'final', date: addDays(T, 200), maxMark: 60 },
   ];
   const marks = {}; const ability = {}; students.forEach(s => { ability[s.id] = Math.min(0.98, Math.max(0.35, 0.74 + (rnd() + rnd() + rnd() - 1.5) * 0.3)); });
   exams.filter(e => e.date <= T).forEach(ex => subjects.forEach(sub => {
     const rec = {};
-    students.forEach(s => { const c = classes.find(x => x.id === s.classId); if (c.grade < sub.fromGrade || c.grade > sub.toGrade) return;
+    students.forEach(s => { const c = classes.find(x => x.id === s.classId); if (!subjectsForGradeIn([sub], c).length) return;
       rec[s.id] = Math.max(0, Math.min(ex.maxMark, Math.round(ex.maxMark * (ability[s.id] + (rnd() - 0.5) * 0.25) * 2) / 2)); });
     marks[`${ex.id}|${sub.id}`] = rec;
   }));
 
   /* finance */
   const feeTypes = [
-    { id: id(), name: 'رسوم دراسية — ابتدائي', nameEn: 'Tuition — Primary', amount: 3000, stage: 'primary' },
-    { id: id(), name: 'رسوم دراسية — إعدادي', nameEn: 'Tuition — Middle', amount: 3500, stage: 'middle' },
-    { id: id(), name: 'رسوم دراسية — ثانوي', nameEn: 'Tuition — Secondary', amount: 4000, stage: 'secondary' },
+    { id: id(), name: 'رسوم دراسية — ابتدائي', nameEn: 'Tuition — Primary', amount: 2500, stage: 'primary' },
+    { id: id(), name: 'رسوم دراسية — إعدادي', nameEn: 'Tuition — Middle', amount: 3000, stage: 'middle' },
+    { id: id(), name: 'رسوم دراسية — ثانوي', nameEn: 'Tuition — Secondary', amount: 3500, stage: 'secondary' },
     { id: id(), name: 'الكتب والقرطاسية', nameEn: 'Books & Stationery', amount: 400, stage: 'all' },
-    { id: id(), name: 'النقل المدرسي', nameEn: 'School Transport', amount: 800, stage: 'all' },
+    { id: id(), name: 'النقل المدرسي', nameEn: 'School Transport', amount: 600, stage: 'all' },
     { id: id(), name: 'الأنشطة والرحلات', nameEn: 'Activities & Trips', amount: 250, stage: 'all' },
   ];
   const invoices = [], payments = []; let ic = 0, rc = 0;
@@ -224,17 +238,19 @@ function seedData() {
     { id: id(), title: 'اجتماع أولياء الأمور', titleEn: 'Parents meeting', date: addDays(T, 4), type: 'meeting', description: '' },
     { id: id(), title: 'اليوم الرياضي', titleEn: 'Sports Day', date: addDays(T, 9), type: 'activity', description: '' },
     { id: id(), title: 'رحلة علمية — المتحف', titleEn: 'Museum field trip', date: addDays(T, 16), type: 'trip', description: '' },
-    { id: id(), title: 'عطلة رسمية', titleEn: 'Public holiday', date: addDays(T, 21), endDate: addDays(T, 23), type: 'holiday', description: '' },
-    { id: id(), title: 'بداية الاختبارات النهائية', titleEn: 'Final exams begin', date: addDays(T, 45), endDate: addDays(T, 55), type: 'exam', description: '' },
-    { id: id(), title: 'اختبار منتصف الفصل', titleEn: 'Midterm exam', date: addDays(T, -8), type: 'exam', description: '' },
+    { id: id(), title: 'عيد الاستقلال', titleEn: 'Independence Day', date: `${T.slice(0, 4)}-12-24`, type: 'holiday', description: '' },
+    { id: id(), title: 'عطلة نصف السنة', titleEn: 'Mid-year break', date: addDays(T, 60), endDate: addDays(T, 74), type: 'holiday', description: '' },
+    { id: id(), title: 'ذكرى ثورة 17 فبراير', titleEn: '17 February Revolution Day', date: `${+T.slice(0, 4) + 1}-02-17`, type: 'holiday', description: '' },
+    { id: id(), title: 'امتحانات الفصل الأول', titleEn: 'Term 1 exams', date: addDays(T, 45), endDate: addDays(T, 55), type: 'exam', description: '' },
+    { id: id(), title: 'تسليم أعمال الفترة الثانية', titleEn: 'Coursework period 2 due', date: addDays(T, -6), type: 'exam', description: '' },
   ];
   const hwTitles = [['حل تمارين الدرس الثالث', 'Solve lesson 3 exercises'], ['كتابة موضوع تعبير', 'Write an essay'], ['مشروع بحثي قصير', 'Short research project'], ['مراجعة الوحدة الأولى', 'Review unit one'], ['قراءة القصة وتلخيصها', 'Read and summarize the story']];
   const homework = range(1, 14).map(i => {
-    const c = classes[(i * 5) % classes.length]; const sub = pick(subjectsForGradeIn(subjects, c.grade)); const ht = pick(hwTitles);
+    const c = classes[(i * 5) % classes.length]; const sub = pick(subjectsForGradeIn(subjects, c)); const ht = pick(hwTitles);
     const tid = Object.values(tt[c.id]).find(x => x.subjectId === sub.id)?.teacherId || '';
     return { id: id(), classId: c.id, subjectId: sub.id, title: ht[0], titleEn: ht[1], description: '', assignDate: addDays(T, -i), dueDate: addDays(T, 7 - i), teacherId: tid };
   });
-  homework.push(...[sib[0], sib[1]].map(s => { const c = classes.find(x => x.id === s.classId); const sub = subjectsForGradeIn(subjects, c.grade)[2];
+  homework.push(...[sib[0], sib[1]].map(s => { const c = classes.find(x => x.id === s.classId); const sub = subjectsForGradeIn(subjects, c)[2];
     return { id: id(), classId: c.id, subjectId: sub.id, title: 'حل ورقة العمل', titleEn: 'Complete the worksheet', description: '', assignDate: T, dueDate: addDays(T, 3), teacherId: '' }; }));
   const behavior = range(1, 16).map(i => {
     const pos = rnd() < 0.55;
@@ -254,4 +270,4 @@ function seedData() {
   return { version: 1, settings, subjects, classes, employees, buses, students, tt, att, exams, marks, feeTypes, invoices, payments,
     books, loans, admissions, announcements, events, homework, behavior, users };
 }
-function subjectsForGradeIn(subjects, g) { return subjects.filter(s => g >= s.fromGrade && g <= s.toGrade); }
+function subjectsForGradeIn(subjects, c) { return subjects.filter(s => c.grade >= s.fromGrade && c.grade <= s.toGrade && (!s.track || s.track === 'all' || s.track === c.track)); }

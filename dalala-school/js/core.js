@@ -77,7 +77,7 @@ function dayName(i, short) { return t(short ? 'daysShort' : 'days')[i]; }
 function loc(r, k = 'name') { if (!r) return '—'; return (LANG === 'en' && r[k + 'En']) ? r[k + 'En'] : (r[k] ?? '—'); }
 function gradeName(g) { const a = t('grades'); return Array.isArray(a) ? a[g - 1] : 'Grade ' + g; }
 function stageOf(g) { g = +g; return !g ? '' : g <= 6 ? 'primary' : g <= 9 ? 'middle' : 'secondary'; }
-function classLabel(c) { return c ? `${gradeName(c.grade)} — ${c.section}` : '—'; }
+function classLabel(c) { return c ? `${gradeName(c.grade)} — ${c.section}${c.track && c.track !== 'general' ? ` (${t('opt_' + c.track)})` : ''}` : '—'; }
 function termName(n) { return t('opt_term' + n); }
 function pct(a, b) { return b ? Math.round(a * 1000 / b) / 10 : 0; }
 function norm(s) { return String(s ?? '').toLowerCase().replace(/[ً-ْـ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي'); }
@@ -86,7 +86,8 @@ function avatar(r, size = '') { const n = loc(r); return `<span class="av ${size
 function badge(v, label) { return `<span class="badge b-${esc(v)}">${esc(label ?? t('opt_' + v))}</span>`; }
 function gradeLetter(p) {
   if (p == null || isNaN(p)) return { letter: '—', key: 'na' };
-  const s = [[90, 'A', 'excellent'], [80, 'B', 'vgood'], [65, 'C', 'good'], [50, 'D', 'pass'], [0, 'F', 'fail']];
+  const st = S();
+  const s = [[+st.bandExcellent || 85, 'A', 'excellent'], [+st.bandVgood || 75, 'B', 'vgood'], [+st.bandGood || 65, 'C', 'good'], [+st.passMark || 50, 'D', 'pass'], [0, 'F', 'fail']];
   const [, letter, key] = s.find(x => p >= x[0]);
   return { letter, key };
 }
@@ -97,7 +98,40 @@ function studentsOfClass(cid) {
   return DB.all('students').filter(s => s.classId === cid && s.status === 'active')
     .sort((a, b) => loc(a).localeCompare(loc(b), LANG));
 }
-function subjectsForGrade(g) { g = +g; return DB.all('subjects').filter(s => g >= +s.fromGrade && g <= +s.toGrade); }
+function subjectsForGrade(g, track) {
+  g = +g; return DB.all('subjects').filter(s => g >= +s.fromGrade && g <= +s.toGrade && (!s.track || s.track === 'all' || s.track === (track || 'general')));
+}
+function subjectsForClass(c) { return c ? subjectsForGrade(c.grade, c.track) : []; }
+
+/* ---------- Results (pass / second sitting / fail) ---------- */
+function resultStatus(subjects) {
+  const valid = subjects.filter(x => x.p != null); if (!valid.length) return null;
+  const failed = valid.filter(x => x.p < +S().passMark);
+  if (!failed.length) return 'pass';
+  return failed.length <= (+S().maxResit || 0) ? 'resit' : 'fail';
+}
+const RES_BADGE = { pass: 'active', resit: 'partial', fail: 'overdue' };
+function resultBadge(st) { return st ? badge(RES_BADGE[st], t('res_' + st)) : '—'; }
+
+/* ---------- Absence limits (warning / deprivation) ---------- */
+function absenceInfo(sid, cid) {
+  const a = studentAttendance(sid, cid);
+  const rate = a.total ? pct(a.A, a.total) : 0;
+  const level = rate >= +S().absenceLimit ? 'limit' : rate >= +S().absenceWarn ? 'warn' : null;
+  return { ...a, absRate: rate, level };
+}
+function absenceBadge(level) { return level ? badge(level === 'limit' ? 'overdue' : 'partial', t('abs_' + level)) : ''; }
+
+/* ---------- Libyan validation ---------- */
+function libyanNidError(nid, gender, dob) {
+  const s = String(nid || '').replace(/\s/g, '');
+  if (!/^[12]\d{11}$/.test(s)) return t('errNid12');
+  if (gender && s[0] !== (gender === 'male' ? '1' : '2')) return t('errNidGender');
+  if (dob && s.slice(1, 5) !== String(dob).slice(0, 4)) return t('errNidYear');
+  return null;
+}
+function isLyPhone(v) { return /^(\+?218|00218|0)?(9[1-6]\d{7}|[2-8]\d{7,8})$/.test(String(v || '').replace(/[\s-]/g, '')); }
+const LY_MUNICIPALITIES = ['طرابلس', 'بنغازي', 'مصراتة', 'الزاوية', 'زليتن', 'الخمس', 'صبراتة', 'صرمان', 'غريان', 'ترهونة', 'سرت', 'البيضاء', 'درنة', 'طبرق', 'أجدابيا', 'المرج', 'سبها', 'أوباري', 'مرزق', 'غات', 'الكفرة', 'نالوت', 'يفرن', 'زوارة', 'بني وليد', 'جنزور', 'تاجوراء', 'سوق الجمعة', 'أبوسليم', 'حي الأندلس', 'العجيلات', 'الجميل', 'القره بوللي', 'مسلاتة', 'هون', 'ودان', 'براك الشاطئ', 'الأبيار', 'شحات', 'الجفرة', 'جالو', 'قصر الأخيار', 'العزيزية', 'ككلة', 'الزنتان', 'الرجبان', 'جادو', 'ورشفانة'];
 function sortedClasses() { return DB.all('classes').slice().sort((a, b) => a.grade - b.grade || String(a.section).localeCompare(b.section)); }
 function invPaid(inv) { return sum(DB.all('payments').filter(p => p.invoiceId === inv.id), p => p.amount); }
 function invNet(inv) { return Math.max(0, (+inv.amount || 0) - (+inv.discount || 0)); }
@@ -136,9 +170,17 @@ function attRateByDate(date) {
 
 /* marks: DB.d.marks["examId|subjectId"] = { studentId: number } */
 function termResult(student, term) {
-  const cls = DB.get('classes', student.classId); if (!cls) return { subjects: [], avg: null };
+  const cls = DB.get('classes', student.classId); if (!cls) return { subjects: [], avg: null, exams: [] };
+  if (term === 'annual') {
+    const r1 = termResult(student, 1), r2 = termResult(student, 2);
+    const subjects = r1.subjects.map((x, i) => { const y = r2.subjects[i]; const ps = [x.p, y.p].filter(v => v != null);
+      return { sub: x.sub, cells: [x.p, y.p], got: 0, max: 0, p: ps.length ? Math.round(sum(ps) / ps.length * 10) / 10 : null }; });
+    const valid = subjects.filter(s => s.p !== null);
+    return { exams: [{ title: termName(1), maxMark: 100 }, { title: termName(2), maxMark: 100 }], subjects,
+      avg: valid.length ? Math.round(sum(valid, s => s.p) / valid.length * 10) / 10 : null, status: resultStatus(subjects) };
+  }
   const exams = DB.all('exams').filter(e => String(e.term) === String(term)).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-  const subjects = subjectsForGrade(cls.grade).map(sub => {
+  const subjects = subjectsForClass(cls).map(sub => {
     let got = 0, max = 0; const cells = exams.map(ex => {
       const m = DB.d.marks[`${ex.id}|${sub.id}`]?.[student.id];
       if (m !== undefined && m !== null && m !== '') { got += +m; max += +ex.maxMark; }
@@ -148,7 +190,7 @@ function termResult(student, term) {
   });
   const valid = subjects.filter(s => s.p !== null);
   const avg = valid.length ? Math.round(sum(valid, s => s.p) / valid.length * 10) / 10 : null;
-  return { exams, subjects, avg };
+  return { exams, subjects, avg, status: resultStatus(subjects) };
 }
 
 /* ---------- Timetable helpers ---------- */
@@ -253,6 +295,7 @@ function printHTML(html) {
 window.addEventListener('afterprint', () => { document.body.classList.remove('printing'); $('#print-area').innerHTML = ''; });
 function printHeader(title) {
   const st = S();
-  return `<div class="ph">${LOGO.replace(/lg1/g, 'lgp')}<div><h2>${esc(loc(st, 'schoolName'))}</h2><p>${esc(st.address || '')} · ${esc(st.phone || '')}</p></div>
+  const ly = st.country === 'LY' ? `<div class="ph-gov"><b>${t('libyaState')}</b><span>${esc(loc(st, 'ministry'))}</span><span>${esc(loc(st, 'supervision'))}</span></div>` : '';
+  return `${ly}<div class="ph">${LOGO.replace(/lg1/g, 'lgp')}<div><h2>${esc(loc(st, 'schoolName'))}</h2><p>${esc(loc(st, 'address') || '')} · <span class="ltr">${esc(st.phone || '')}</span>${st.schoolCode ? ` · ${t('f_schoolCode')}: ${esc(st.schoolCode)}` : ''}</p></div>
     <div class="ph-end"><b>${esc(title)}</b><span>${t('f_year')}: ${esc(st.year || '')}</span><span>${fmtDate(today())}</span></div></div>`;
 }

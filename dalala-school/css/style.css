@@ -465,3 +465,19 @@ td.editable:hover .slot { outline: 2px solid var(--primary); outline-offset: -2p
   .table.crud td.row-actions { justify-content: flex-end; }
   .table-wrap { border: 0; }
 }
+
+/* ---------- Libya additions ---------- */
+.ph-gov { display: flex; flex-direction: column; align-items: center; text-align: center; font-size: 12.5px; color: #333; margin-bottom: 8px; line-height: 1.5; }
+.ph-gov b { font-size: 14px; }
+.presit { margin: -8px 0 14px; padding: 8px 12px; border: 1px dashed #f59e0b; border-radius: 8px; font-size: 13px; background: #fffbeb; }
+.ptable.small { font-size: 11px; } .ptable.small th, .ptable.small td { padding: 4px 5px; }
+.alert { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 14px; margin-top: 18px; border: 1px solid; }
+.alert .ic { width: 22px; height: 22px; flex-shrink: 0; }
+.alert > div { display: flex; flex-direction: column; }
+.alert.warn { background: var(--warn-soft); border-color: #fcd34d; color: #92400e; }
+.alert.limit { background: var(--bad-soft); border-color: #fca5a5; color: #991b1b; }
+:root[data-theme="dark"] .alert.warn { color: #fde68a; border-color: #78350f; }
+:root[data-theme="dark"] .alert.limit { color: #fecaca; border-color: #7f1d1d; }
+.b-coursework, .b-scientific { background: var(--info-soft); color: #0284c7; border-color: transparent; }
+.b-literary, .b-religious { background: #fdf4ff; color: #a21caf; border-color: transparent; }
+.ltr { direction: ltr; unicode-bidi: isolate; display: inline-block; }

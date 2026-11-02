@@ -13,16 +13,21 @@ const ENT = {
       { k: 'code', type: 'text', list: 1, auto: 'STD', unique: 1 },
       { k: 'name', type: 'text', req: 1, list: 1, show: r => loc(r), fmt: r => `<a class="who" href="#/student/${r.id}">${avatar(r)}<span>${esc(loc(r))}</span></a>` },
       { k: 'nameEn', type: 'text', dir: 'ltr' },
+      { k: 'motherName', type: 'text' },
       { k: 'gender', type: 'select', opts: ['male', 'female'], req: 1, list: 1 },
       { k: 'dob', type: 'date' },
+      { k: 'birthPlace', type: 'text', datalist: () => LY_MUNICIPALITIES },
+      { k: 'nationality', type: 'select', opts: ['libyan', 'nonLibyan'], def: 'libyan' },
+      { k: 'nationalId', type: 'text', dir: 'ltr' },
+      { k: 'familyRegNo', type: 'text', dir: 'ltr' },
       { k: 'classId', type: 'ref', ref: 'classes', req: 1, list: 1 },
-      { k: 'nationalId', type: 'text' },
+      { k: 'seatNumber', type: 'text', dir: 'ltr' },
       { k: 'guardianName', type: 'text', req: 1 },
       { k: 'guardianNameEn', type: 'text', dir: 'ltr' },
       { k: 'guardianRelation', type: 'select', opts: ['father', 'mother', 'brother', 'other'], def: 'father' },
       { k: 'guardianPhone', type: 'tel', req: 1, list: 1 },
       { k: 'guardianEmail', type: 'email' },
-      { k: 'address', type: 'text' },
+      { k: 'address', type: 'text', datalist: () => LY_MUNICIPALITIES },
       { k: 'busId', type: 'ref', ref: 'buses' },
       { k: 'enrollDate', type: 'date', def: () => today() },
       { k: 'status', type: 'select', opts: ['active', 'transferred', 'graduated', 'withdrawn'], def: 'active', list: 1, badge: 1 },
@@ -30,6 +35,12 @@ const ENT = {
     ],
     filters: [stageFilter(r => DB.get('classes', r.classId)?.grade), { k: 'classId' }, { k: 'gender' }, { k: 'status' }],
     actions: [{ icon: 'eye', label: 'view', href: r => '#/student/' + r.id }],
+    validate: r => {
+      if (S().country !== 'LY') return null;
+      if (S().validateNid && r.nationality === 'libyan' && r.nationalId) { const e = libyanNidError(r.nationalId, r.gender, r.dob); if (e) return e; }
+      if (r.guardianPhone && !isLyPhone(r.guardianPhone)) return t('errPhone');
+      return null;
+    },
   },
 
   admissions: {
@@ -58,13 +69,15 @@ const ENT = {
     fields: [
       { k: 'grade', type: 'select', opts: gradeOpts, optLabel: gradeName, num: 1, req: 1, list: 1 },
       { k: 'section', type: 'text', req: 1, list: 1 },
+      { k: 'track', type: 'select', opts: ['general', 'scientific', 'literary', 'religious'], def: 'general', list: 1 },
       { k: 'stage', type: 'calc', list: 1, get: r => t('opt_' + stageOf(r.grade)) },
       { k: 'teacherId', type: 'ref', ref: 'employees', refFilter: e => e.role === 'teacher', list: 1 },
       { k: 'room', type: 'text', list: 1 },
       { k: 'capacity', type: 'number', def: 30, list: 1 },
       { k: 'count', type: 'calc', list: 1, get: r => studentsOfClass(r.id).length, fmt: r => { const n = studentsOfClass(r.id).length; return `<div class="cap"><span>${n} / ${r.capacity || '∞'}</span>${progress(r.capacity ? n / r.capacity * 100 : 0)}</div>`; } },
     ],
-    filters: [stageFilter(r => r.grade)],
+    filters: [stageFilter(r => r.grade), { k: 'track' }],
+    validate: r => (+r.grade < 10 && r.track && r.track !== 'general' ? t('errTrack') : null),
     actions: [{ icon: 'grid', label: 'timetable', href: r => '#/timetable?class=' + r.id }, { icon: 'check', label: 'attendance', href: r => '#/attendance?class=' + r.id }],
   },
 
@@ -76,6 +89,7 @@ const ENT = {
       { k: 'nameEn', type: 'text', dir: 'ltr' },
       { k: 'fromGrade', type: 'select', opts: gradeOpts, optLabel: gradeName, num: 1, req: 1, list: 1, def: 1 },
       { k: 'toGrade', type: 'select', opts: gradeOpts, optLabel: gradeName, num: 1, req: 1, list: 1, def: 12 },
+      { k: 'track', type: 'select', opts: ['all', 'scientific', 'literary', 'religious'], def: 'all', list: 1 },
       { k: 'weeklyHours', type: 'number', def: 2, list: 1 },
       { k: 'teachersCount', type: 'calc', list: 1, get: r => teachers().filter(e => e.subjectId === r.id).length },
     ],
@@ -89,6 +103,7 @@ const ENT = {
       { k: 'name', type: 'text', req: 1, list: 1, show: r => loc(r), fmt: r => `<span class="who">${avatar(r)}<span>${esc(loc(r))}</span></span>` },
       { k: 'nameEn', type: 'text', dir: 'ltr' },
       { k: 'gender', type: 'select', opts: ['male', 'female'], req: 1 },
+      { k: 'nationalId', type: 'text', dir: 'ltr' },
       { k: 'role', type: 'select', opts: ['teacher', 'principal', 'vice', 'admin', 'accountant', 'librarian', 'counselor', 'nurse', 'driver'], req: 1, list: 1, def: 'teacher' },
       { k: 'subjectId', type: 'ref', ref: 'subjects', list: 1 },
       { k: 'phone', type: 'tel', list: 1 },
@@ -99,6 +114,7 @@ const ENT = {
       { k: 'status', type: 'select', opts: ['active', 'leave', 'terminated'], def: 'active', list: 1, badge: 1 },
     ],
     filters: [{ k: 'role' }, { k: 'subjectId' }, { k: 'status' }],
+    validate: r => (S().country === 'LY' && S().validateNid && r.nationalId ? libyanNidError(r.nationalId, r.gender) : null),
     actions: [{ icon: 'grid', label: 'timetable', show: r => r.role === 'teacher', href: r => '#/timetable?teacher=' + r.id }],
   },
 
@@ -108,7 +124,7 @@ const ENT = {
       { k: 'title', type: 'text', req: 1, list: 1, show: r => loc(r, 'title') },
       { k: 'titleEn', type: 'text', dir: 'ltr' },
       { k: 'term', type: 'select', opts: [1, 2], optLabel: termName, num: 1, req: 1, list: 1, def: 1 },
-      { k: 'type', type: 'select', opts: ['quiz', 'monthly', 'midterm', 'final'], req: 1, list: 1, badge: 1 },
+      { k: 'type', type: 'select', opts: ['coursework', 'quiz', 'monthly', 'midterm', 'final'], req: 1, list: 1, badge: 1 },
       { k: 'date', type: 'date', list: 1 },
       { k: 'maxMark', type: 'number', req: 1, def: 20, list: 1 },
       { k: 'entered', type: 'calc', list: 1, get: r => Object.keys(DB.d.marks).filter(k => k.startsWith(r.id + '|')).length },
@@ -440,7 +456,10 @@ function inputHtml(f, v, rec) {
     case 'multiref': return `<select class="input" ${name} multiple size="6">${refOptions(f, v || []).map(o => `<option value="${esc(o.v)}" ${(v || []).includes(o.v) ? 'selected' : ''}>${esc(o.l)}</option>`).join('')}</select><small class="hint">${t('multiHint')}</small>`;
     case 'bool': return `<label class="switch"><input type="checkbox" ${name} ${v ? 'checked' : ''}><span></span></label>`;
     case 'number': return `<input class="input" type="number" step="any" min="0" ${name} value="${esc(v)}" ${req}>`;
-    default: return `<input class="input" type="${f.type === 'password' ? 'text' : f.type}" ${name} value="${esc(v)}" ${req} ${dir}>`;
+    default: {
+      const dl = f.datalist ? `<datalist id="dl-${f.k}">${f.datalist().map(o => `<option value="${esc(o)}">`).join('')}</datalist>` : '';
+      return `<input class="input" type="${f.type === 'password' ? 'text' : f.type}" ${name} value="${esc(v)}" ${req} ${dir} ${dl ? `list="dl-${f.k}"` : ''}>${dl}`;
+    }
   }
 }
 

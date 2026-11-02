@@ -115,10 +115,11 @@ function renderAttendance(p) {
       ${!isWork ? badge('overdue', t('notWorkDay')) : ''}
     </div>
     <div id="att-counts">${attCounts(studs)}</div>
-    ${studs.length ? `<div class="table-wrap"><table class="table att"><thead><tr><th>#</th><th>${t('f_name')}</th><th>${t('f_status')}</th><th>${t('rate30')}</th></tr></thead><tbody>
+    ${studs.length ? `<div class="table-wrap"><table class="table att"><thead><tr><th>#</th><th>${t('f_name')}</th><th>${t('f_status')}</th><th>${t('rate30')}</th><th>${t('absenceYear')}</th></tr></thead><tbody>
       ${studs.map((s, i) => { const a = studentAttendance(s.id, cid, from); return `<tr><td>${i + 1}</td><td><a class="who" href="#/student/${s.id}">${avatar(s)}<span>${esc(loc(s))}</span></a></td>
         <td><div class="seg">${['P', 'A', 'L', 'E'].map(st => stBtn(s.id, st)).join('')}</div></td>
-        <td>${a.rate == null ? '—' : `<div class="cap"><span>${fmtNum(a.rate, 1)}%</span>${progress(a.rate, a.rate < 80 ? 'var(--bad)' : 'var(--ok)')}</div>`}</td></tr>`; }).join('')}
+        <td>${a.rate == null ? '—' : `<div class="cap"><span>${fmtNum(a.rate, 1)}%</span>${progress(a.rate, a.rate < 80 ? 'var(--bad)' : 'var(--ok)')}</div>`}</td>
+        <td>${(() => { const ab = absenceInfo(s.id, cid); return `${fmtNum(ab.absRate, 1)}% ${absenceBadge(ab.level)}`; })()}</td></tr>`; }).join('')}
       </tbody></table></div>
       <div class="form-actions"><button class="btn ghost" data-act="att-all">${icon('check')}<span>${t('markAllPresent')}</span></button>
       <button class="btn primary" data-act="att-save">${icon('check')}<span>${t('saveAttendance')}</span></button></div>` : emptyState(t('noStudents'))}
@@ -137,7 +138,7 @@ function renderMarks(p) {
   if (!exams.length || !classes.length) return pageHead(t('nav_marks')) + emptyState(t('needExamsClasses'));
   const exam = DB.get('exams', p.exam) || [...exams].reverse().find(e => e.date <= today()) || exams[0];
   const cls = DB.get('classes', p.class) || classes[0];
-  const subs = subjectsForGrade(cls.grade);
+  const subs = subjectsForClass(cls);
   const mySub = USER.employeeId ? DB.get('employees', USER.employeeId)?.subjectId : null;
   const sub = subs.find(s => s.id === p.subject) || subs.find(s => s.id === mySub) || subs[0];
   if (!sub) return pageHead(t('nav_marks')) + emptyState(t('noSubjects'));
@@ -178,19 +179,19 @@ function classResults(cid, term) {
 function renderReportCards(p) {
   const classes = sortedClasses(); if (!classes.length) return pageHead(t('nav_reportcards')) + emptyState(t('noClasses'));
   const cls = DB.get('classes', p.class) || classes[0]; const term = p.term || '1';
-  const res = classResults(cls.id, term); const subs = subjectsForGrade(cls.grade);
+  const res = classResults(cls.id, term); const subs = subjectsForClass(cls);
   const valid = res.filter(x => x.r.avg != null);
   const dist = ['A', 'B', 'C', 'D', 'F'].map(l => ({ label: l, value: valid.filter(x => gradeLetter(x.r.avg).letter === l).length, color: { A: '#10b981', B: '#06b6d4', C: '#6366f1', D: '#f59e0b', F: '#ef4444' }[l] }));
   return `${pageHead(t('nav_reportcards'), t('sub_reportcards'), `<button class="btn ghost" data-act="rc-export" data-cid="${cls.id}" data-term="${term}">${icon('download')}<span>${t('export')}</span></button>
       <button class="btn primary" data-act="rc-print-all" data-cid="${cls.id}" data-term="${term}">${icon('printer')}<span>${t('printAll')}</span></button>`)}
-    <div class="card"><div class="toolbar">${selectBox('class', classOpts(), cls.id, t('f_classId'))}${selectBox('term', [1, 2].map(v => ({ v, l: termName(v) })), term, t('f_term'))}</div>
+    <div class="card"><div class="toolbar">${selectBox('class', classOpts(), cls.id, t('f_classId'))}${selectBox('term', [1, 2, 'annual'].map(v => ({ v, l: termName(v) })), term, t('f_term'))}</div>
     <div class="grid-2 inner"><div>${barChart(dist, { height: 150 })}</div>
-      <div class="summary col">${[[t('classAverage'), valid.length ? fmtNum(sum(valid, x => x.r.avg) / valid.length, 1) + '%' : '—'], [t('passRate'), valid.length ? fmtNum(pct(valid.filter(x => x.r.avg >= +S().passMark).length, valid.length), 1) + '%' : '—'], [t('studentsCount'), fmtNum(res.length)]].map(([l, v]) => `<div class="sum-item"><span>${l}</span><b>${v}</b></div>`).join('')}</div></div>
-    ${res.length ? `<div class="table-wrap"><table class="table rc"><thead><tr><th>${t('rank')}</th><th>${t('f_name')}</th>${subs.map(s => `<th title="${esc(loc(s))}">${esc(s.code)}</th>`).join('')}<th>${t('average')}</th><th>${t('gradeLbl')}</th><th></th></tr></thead><tbody>
+      <div class="summary col">${[[t('classAverage'), valid.length ? fmtNum(sum(valid, x => x.r.avg) / valid.length, 1) + '%' : '—'], [t('passRate'), valid.length ? fmtNum(pct(valid.filter(x => x.r.avg >= +S().passMark).length, valid.length), 1) + '%' : '—'], [t('studentsCount'), fmtNum(res.length)], [t('res_summary'), ['pass', 'resit', 'fail'].map(k => `${t('res_' + k)}: ${fmtNum(res.filter(x => x.r.status === k).length)}`).join(' · ')]].map(([l, v]) => `<div class="sum-item"><span>${l}</span><b>${v}</b></div>`).join('')}</div></div>
+    ${res.length ? `<div class="table-wrap"><table class="table rc"><thead><tr><th>${t('rank')}</th><th>${t('f_name')}</th>${subs.map(s => `<th title="${esc(loc(s))}">${esc(s.code)}</th>`).join('')}<th>${t('average')}</th><th>${t('gradeLbl')}</th><th>${t('result')}</th><th></th></tr></thead><tbody>
       ${res.sort((a, b) => (a.rank || 999) - (b.rank || 999)).map(x => { const g = gradeLetter(x.r.avg); return `<tr><td>${x.rank ? `<span class="rank r${x.rank}">${fmtNum(x.rank)}</span>` : '—'}</td>
         <td><a class="who" href="#/student/${x.s.id}">${avatar(x.s)}<span>${esc(loc(x.s))}</span></a></td>
         ${x.r.subjects.map(su => `<td class="${su.p != null && su.p < +S().passMark ? 'fail' : ''}">${su.p == null ? '—' : fmtNum(su.p, 0)}</td>`).join('')}
-        <td><b>${x.r.avg == null ? '—' : fmtNum(x.r.avg, 1) + '%'}</b></td><td>${x.r.avg == null ? '—' : badge('g' + g.letter, g.letter)}</td>
+        <td><b>${x.r.avg == null ? '—' : fmtNum(x.r.avg, 1) + '%'}</b></td><td>${x.r.avg == null ? '—' : badge('g' + g.letter, g.letter)}</td><td>${resultBadge(x.r.status)}</td>
         <td><button class="icon-btn" data-act="rc-print" data-sid="${x.s.id}" data-term="${term}" title="${t('print')}">${icon('printer')}</button></td></tr>`; }).join('')}
       </tbody></table></div>` : emptyState(t('noStudents'))}</div>`;
 }
@@ -198,16 +199,20 @@ function reportCardHTML(s, term) {
   const cls = DB.get('classes', s.classId); const r = termResult(s, term);
   const rank = classResults(s.classId, term).find(x => x.s.id === s.id)?.rank;
   const att = studentAttendance(s.id, s.classId); const g = gradeLetter(r.avg);
-  const passed = r.subjects.every(x => x.p == null || x.p >= +S().passMark);
+  const resitSubs = r.subjects.filter(x => x.p != null && x.p < +S().passMark).map(x => loc(x.sub));
+  const ly = S().country === 'LY';
   const hr = DB.get('employees', cls?.teacherId);
   return `<div class="rcard">${printHeader(`${t('reportCard')} — ${termName(term)}`)}
     <div class="pbox"><div class="kv"><span>${t('f_name')}</span><b>${esc(loc(s))}</b></div><div class="kv"><span>${t('f_code')}</span><b>${esc(s.code)}</b></div>
-    <div class="kv"><span>${t('f_classId')}</span><b>${esc(classLabel(cls))}</b></div><div class="kv"><span>${t('homeroom')}</span><b>${esc(loc(hr))}</b></div></div>
+    <div class="kv"><span>${t('f_classId')}</span><b>${esc(classLabel(cls))}</b></div><div class="kv"><span>${t('homeroom')}</span><b>${esc(loc(hr))}</b></div>
+    ${ly ? `<div class="kv"><span>${t('f_motherName')}</span><b>${esc(s.motherName || '—')}</b></div><div class="kv"><span>${t('f_nationalId')}</span><b>${esc(s.nationalId || '—')}</b></div>
+    <div class="kv"><span>${t('f_dob')}</span><b>${fmtDate(s.dob)}${s.birthPlace ? ' — ' + esc(s.birthPlace) : ''}</b></div>${s.seatNumber ? `<div class="kv"><span>${t('f_seatNumber')}</span><b>${esc(s.seatNumber)}</b></div>` : ''}` : ''}</div>
     <table class="ptable"><thead><tr><th>${t('f_subjectId')}</th>${r.exams.map(e => `<th>${esc(loc(e, 'title'))}<br><small>/${fmtNum(e.maxMark)}</small></th>`).join('')}<th>${t('total')}</th><th>%</th><th>${t('gradeLbl')}</th></tr></thead>
     <tbody>${r.subjects.map(x => { const gg = gradeLetter(x.p); return `<tr><td>${esc(loc(x.sub))}</td>${x.cells.map(c => `<td>${c ?? '—'}</td>`).join('')}<td>${x.max ? `${fmtNum(x.got, 1)} / ${fmtNum(x.max)}` : '—'}</td><td>${x.p == null ? '—' : fmtNum(x.p, 1)}</td><td>${x.p == null ? '—' : `${gg.letter} — ${t('gr_' + gg.key)}`}</td></tr>`; }).join('')}</tbody></table>
     <div class="ptotals"><div><span>${t('average')}</span><b>${r.avg == null ? '—' : fmtNum(r.avg, 1) + '%'}</b></div><div><span>${t('gradeLbl')}</span><b>${g.letter} — ${t('gr_' + g.key)}</b></div>
     <div><span>${t('rank')}</span><b>${rank ? `${fmtNum(rank)} / ${fmtNum(studentsOfClass(s.classId).length)}` : '—'}</b></div><div><span>${t('attendanceRate')}</span><b>${att.rate == null ? '—' : fmtNum(att.rate, 1) + '%'}</b></div>
-    <div><span>${t('result')}</span><b>${r.avg == null ? '—' : passed ? t('passed') : t('needsSupport')}</b></div></div>
+    <div><span>${t('result')}</span><b>${r.status ? t('res_' + r.status) : '—'}</b></div></div>
+    ${resitSubs.length ? `<p class="presit"><b>${t(r.status === 'resit' ? 'resitSubjects' : 'failedSubjects')}:</b> ${esc(resitSubs.join('، '))}</p>` : ''}
     <div class="psign"><div>${t('homeroom')}</div><div>${t('principal')}: ${esc(loc(S(), 'principal'))}</div><div>${t('guardianSign')}</div></div></div>`;
 }
 
@@ -250,7 +255,7 @@ function renderTimetable(p) {
 }
 function openSlot(cid, d, p) {
   const cls = DB.get('classes', cid); const cur = (DB.d.tt[cid] || {})[`${d}-${p}`] || {};
-  const subs = subjectsForGrade(cls.grade);
+  const subs = subjectsForClass(cls);
   const busyIn = tid => Object.entries(DB.d.tt).find(([c, g]) => c !== cid && g[`${d}-${p}`]?.teacherId === tid)?.[0];
   const teacherOpts = sid => teachers().slice().sort((a, b) => (b.subjectId === sid) - (a.subjectId === sid)).map(e => { const b = busyIn(e.id);
     return `<option value="${e.id}" ${cur.teacherId === e.id ? 'selected' : ''} ${b ? 'disabled' : ''}>${esc(loc(e))} — ${esc(refLabel('subjects', e.subjectId))}${b ? ` (${t('busyIn')} ${esc(refLabel('classes', b))})` : ''}</option>`; }).join('');
@@ -305,14 +310,16 @@ function studentSections(s, { portal } = {}) {
   const beh = DB.all('behavior').filter(b => b.studentId === s.id).sort((a, b) => b.date.localeCompare(a.date));
   const hw = DB.all('homework').filter(h => h.classId === s.classId).sort((a, b) => b.dueDate.localeCompare(a.dueDate)).slice(0, 8);
   const loans = DB.all('loans').filter(l => l.studentId === s.id);
+  const ab = absenceInfo(s.id, s.classId);
   const age = s.dob ? Math.floor((Date.now() - parseISO(s.dob)) / 31557600000) : null;
-  const info = [['f_code', s.code], ['f_dob', s.dob ? `${fmtDate(s.dob)} (${fmtNum(age)} ${t('years')})` : '—'], ['f_gender', t('opt_' + s.gender)], ['f_nationalId', s.nationalId],
+  const info = [['f_code', s.code], ['f_dob', s.dob ? `${fmtDate(s.dob)} (${fmtNum(age)} ${t('years')})` : '—'], ['f_gender', t('opt_' + s.gender)], ['f_nationalId', s.nationalId], ['f_motherName', s.motherName], ['f_birthPlace', s.birthPlace],
+    ['f_nationality', s.nationality ? t('opt_' + s.nationality) : '—'], ['f_familyRegNo', s.familyRegNo], ['f_seatNumber', s.seatNumber],
     ['f_guardianName', LANG === 'en' && s.guardianNameEn ? s.guardianNameEn : s.guardianName], ['f_guardianRelation', s.guardianRelation ? t('opt_' + s.guardianRelation) : '—'], ['f_guardianPhone', s.guardianPhone], ['f_guardianEmail', s.guardianEmail],
     ['f_address', s.address], ['f_busId', s.busId ? refLabel('buses', s.busId) : '—'], ['f_enrollDate', s.enrollDate ? fmtDate(s.enrollDate) : '—'], ['f_medical', s.medical]];
   const resTable = r => r.subjects.length ? `<table class="table compact"><thead><tr><th>${t('f_subjectId')}</th>${r.exams.map(e => `<th>${esc(loc(e, 'title'))}</th>`).join('')}<th>%</th><th>${t('gradeLbl')}</th></tr></thead><tbody>
     ${r.subjects.map(x => { const g = gradeLetter(x.p); return `<tr><td><span class="dot" style="background:${subjectColor(x.sub.id)}"></span> ${esc(loc(x.sub))}</td>${x.cells.map(c => `<td>${c ?? '—'}</td>`).join('')}<td>${x.p == null ? '—' : fmtNum(x.p, 1)}</td><td>${x.p == null ? '—' : badge('g' + g.letter, g.letter)}</td></tr>`; }).join('')}</tbody></table>` : emptyState(t('noData'));
   const k = [
-    { ic: 'check', label: t('attendanceRate'), val: att.rate == null ? '—' : fmtNum(att.rate, 1) + '%', sub: `${fmtNum(att.A)} ${t('att_A')} · ${fmtNum(att.L)} ${t('att_L')}`, c: 'c3' },
+    { ic: 'check', label: t('attendanceRate'), val: att.rate == null ? '—' : fmtNum(att.rate, 1) + '%', sub: `${t('absenceYear')}: ${fmtNum(ab.absRate, 1)}%${ab.level ? ' · ' + t('abs_' + ab.level) : ''}`, c: ab.level === 'limit' ? 'c5' : ab.level ? 'c4' : 'c3' },
     { ic: 'award', label: `${t('average')} — ${termName(1)}`, val: r1.avg == null ? '—' : fmtNum(r1.avg, 1) + '%', sub: r1.avg == null ? '' : t('gr_' + gradeLetter(r1.avg).key), c: 'c1' },
     { ic: 'wallet', label: t('balanceDue'), val: moneyText(bal), sub: `${fmtNum(invs.length)} ${t('invoicesLbl')}`, c: bal > 0 ? 'c5' : 'c2' },
     { ic: 'star', label: t('nav_behavior'), val: `+${fmtNum(beh.filter(b => b.kind === 'positive').length)} / -${fmtNum(beh.filter(b => b.kind === 'negative').length)}`, sub: t('posNeg'), c: 'c4' },
@@ -324,6 +331,7 @@ function studentSections(s, { portal } = {}) {
       ${card(t('homework'), hw.length ? `<ul class="list">${hw.map(h => `<li><span class="dot" style="background:${subjectColor(h.subjectId)}"></span><div><b>${esc(loc(h, 'title'))}</b><small>${esc(refLabel('subjects', h.subjectId))} · ${t('f_dueDate')}: ${fmtDate(h.dueDate)}</small></div>${h.dueDate >= today() ? badge('open') : badge('closed')}</li>`).join('')}</ul>` : emptyState(t('noData')))}
     </div>
     ${card(`${t('academic')} — ${termName(1)}`, resTable(r1), `<button class="btn ghost sm" data-act="rc-print" data-sid="${s.id}" data-term="1">${icon('printer')}<span>${t('reportCard')}</span></button>`)}
+    ${ab.level ? `<div class="alert ${ab.level}">${icon('alert')}<div><b>${t('abs_' + ab.level)}</b><span>${t('absAlertText').replace('{n}', fmtNum(ab.absRate, 1)).replace('{w}', S().absenceWarn).replace('{l}', S().absenceLimit)}</span></div></div>` : ''}
     ${r2.avg != null ? card(`${t('academic')} — ${termName(2)}`, resTable(r2), `<button class="btn ghost sm" data-act="rc-print" data-sid="${s.id}" data-term="2">${icon('printer')}<span>${t('reportCard')}</span></button>`) : ''}
     <div class="grid-2">
       ${card(t('attendanceLast30'), `<div class="summary">${['P', 'A', 'L', 'E'].map(x => `<div class="sum-item s-${x}"><span>${t('att_' + x)}</span><b>${fmtNum(att[x])}</b></div>`).join('')}</div>
@@ -374,13 +382,17 @@ function renderReports() {
   const dist = ['A', 'B', 'C', 'D', 'F'].map(l => ({ label: `${l} · ${t('gr_' + gradeLetter({ A: 95, B: 85, C: 70, D: 55, F: 10 }[l]).key)}`, value: results.filter(r => r.avg != null && gradeLetter(r.avg).letter === l).length, color: { A: '#10b981', B: '#06b6d4', C: '#6366f1', D: '#f59e0b', F: '#ef4444' }[l] }));
   const subjAvg = DB.all('subjects').map(sub => { const v = []; results.forEach(r => { const x = r.subjects.find(y => y.sub.id === sub.id); if (x && x.p != null) v.push(x.p); }); return { label: loc(sub), value: v.length ? sum(v) / v.length : null, color: subjectColor(sub.id) }; }).filter(x => x.value != null).sort((a, b) => b.value - a.value);
   const lowAtt = students.map(s => ({ s, a: studentAttendance(s.id, s.classId, from) })).filter(x => x.a.rate != null && x.a.rate < 85).sort((a, b) => a.a.rate - b.a.rate).slice(0, 8);
+  const absWarn = students.map(s => ({ s, a: absenceInfo(s.id, s.classId) })).filter(x => x.a.level).sort((a, b) => b.a.absRate - a.a.absRate);
+  const resCount = ['pass', 'resit', 'fail'].map((k, i) => ({ label: t('res_' + k), value: results.filter(r => r.status === k).length, color: ['#10b981', '#f59e0b', '#ef4444'][i] }));
   const debtors = students.map(s => ({ s, b: sum(invs.filter(i => i.studentId === s.id && invStatus(i) === 'overdue'), invBalance) })).filter(x => x.b > 0).sort((a, b) => b.b - a.b).slice(0, 8);
   return `${pageHead(t('nav_reports'), t('sub_reports'), `<button class="btn ghost" data-act="rep-export" data-what="students">${icon('download')}<span>${t('nav_students')}</span></button>
       <button class="btn ghost" data-act="rep-export" data-what="finance">${icon('download')}<span>${t('finance')}</span></button>
       <button class="btn ghost" data-act="rep-export" data-what="attendance">${icon('download')}<span>${t('nav_attendance')}</span></button>`)}
     <div class="grid-3">${card(t('studentsByGrade'), barChart(byGrade), '', 'span-2')}${card(t('studentsByGender'), donut(gender, { center: fmtNum(students.length), sub: t('student') }))}</div>
     <div class="grid-3">${card(t('attendanceByStage'), hbars(attByStage, { suffix: '%', max: 100 }))}${card(t('gradeDistribution'), hbars(dist))}${card(t('paymentMethods'), donut(methods, { center: fmtNum(pct(paid, billed), 0) + '%', sub: t('collected') }))}</div>
-    ${card(t('subjectAverages'), hbars(subjAvg, { suffix: '%', max: 100 }))}
+    <div class="grid-3">${card(t('subjectAverages'), hbars(subjAvg, { suffix: '%', max: 100 }), '', 'span-2')}${card(`${t('result')} — ${termName(1)}`, donut(resCount, { center: fmtNum(pct(resCount[0].value, sum(resCount, x => x.value)), 0) + '%', sub: t('res_pass') }))}</div>
+    ${card(`${t('absenceWarnings')} (${fmtNum(absWarn.length)})`, absWarn.length ? `<div class="table-wrap"><table class="table compact"><thead><tr><th>${t('f_name')}</th><th>${t('f_classId')}</th><th>${t('att_A')}</th><th>${t('absenceYear')}</th><th>${t('f_status')}</th><th>${t('f_guardianPhone')}</th></tr></thead><tbody>
+      ${absWarn.map(x => `<tr><td><a class="who" href="#/student/${x.s.id}">${avatar(x.s)}<span>${esc(loc(x.s))}</span></a></td><td>${esc(refLabel('classes', x.s.classId))}</td><td>${fmtNum(x.a.A)} / ${fmtNum(x.a.total)}</td><td>${fmtNum(x.a.absRate, 1)}%</td><td>${absenceBadge(x.a.level)}</td><td dir="ltr">${esc(x.s.guardianPhone)}</td></tr>`).join('')}</tbody></table></div>` : emptyState(t('noData')), `<button class="btn ghost sm" data-act="rep-export" data-what="absence">${icon('download')}<span>${t('export')}</span></button>`)}
     ${card(t('financeByType'), `<div class="table-wrap"><table class="table"><thead><tr><th>${t('f_feeTypeId')}</th><th>${t('invoicesLbl')}</th><th>${t('totalBilled')}</th><th>${t('f_paid')}</th><th>${t('outstanding')}</th><th>${t('collectionRate')}</th></tr></thead><tbody>
       ${finRows.map(r => `<tr><td>${esc(loc(r.f))}</td><td>${fmtNum(r.n)}</td><td>${fmtMoney(r.billed)}</td><td>${fmtMoney(r.paid)}</td><td>${fmtMoney(r.billed - r.paid)}</td><td><div class="cap"><span>${fmtNum(pct(r.paid, r.billed), 1)}%</span>${progress(pct(r.paid, r.billed), 'var(--ok)')}</div></td></tr>`).join('')}
       <tr class="total-row"><td>${t('total')}</td><td>${fmtNum(invs.length)}</td><td>${fmtMoney(billed)}</td><td>${fmtMoney(paid)}</td><td>${fmtMoney(billed - paid)}</td><td>${fmtNum(pct(paid, billed), 1)}%</td></tr></tbody></table></div>`)}
@@ -390,7 +402,11 @@ function renderReports() {
 function reportExport(what) {
   if (what === 'students') exportCrud('students');
   else if (what === 'finance') exportCrud('invoices');
-  else {
+  else if (what === 'absence') {
+    const rows = DB.all('students').filter(s => s.status === 'active').map(s => ({ s, a: absenceInfo(s.id, s.classId) })).filter(x => x.a.level)
+      .map(x => [x.s.code, loc(x.s), refLabel('classes', x.s.classId), x.a.A, x.a.total, x.a.absRate, t('abs_' + x.a.level), x.s.guardianName, x.s.guardianPhone]);
+    exportCSV('absence-warnings', [t('f_code'), t('f_name'), t('f_classId'), t('att_A'), t('total'), t('absenceYear'), t('f_status'), t('f_guardianName'), t('f_guardianPhone')], rows);
+  } else {
     const from = addDays(today(), -30);
     const rows = DB.all('students').filter(s => s.status === 'active').map(s => { const a = studentAttendance(s.id, s.classId, from); return [s.code, loc(s), refLabel('classes', s.classId), a.P, a.A, a.L, a.E, a.rate ?? '']; });
     exportCSV('attendance-30d', [t('f_code'), t('f_name'), t('f_classId'), t('att_P'), t('att_A'), t('att_L'), t('att_E'), t('attendanceRate')], rows);
@@ -404,7 +420,18 @@ function renderSettings() {
   return `${pageHead(t('nav_settings'), t('sub_settings'))}
     <form id="settings-form">
     ${card(t('schoolInfo'), `<div class="form-grid">${f('schoolName')}${f('schoolNameEn', 'text', 'dir="ltr"')}${f('principal')}${f('principalEn', 'text', 'dir="ltr"')}${f('address')}${f('addressEn', 'text', 'dir="ltr"')}${f('phone', 'tel')}${f('email', 'email', 'dir="ltr"')}</div>`)}
-    ${card(t('academicSettings'), `<div class="form-grid">${f('year')}${f('currency')}${f('passMark', 'number', 'min="0" max="100"')}${f('periods', 'number', 'min="1" max="12"')}
+    ${card(t('authoritySettings'), `<div class="form-grid">
+      <label class="field"><span>${t('f_country')}</span><select class="input" name="country"><option value="LY" ${st.country === 'LY' ? 'selected' : ''}>${t('opt_LY')}</option><option value="other" ${st.country !== 'LY' ? 'selected' : ''}>${t('opt_otherCountry')}</option></select></label>
+      <label class="field"><span>${t('f_schoolType')}</span><select class="input" name="schoolType">${['public', 'private', 'religious'].map(v => `<option value="${v}" ${st.schoolType === v ? 'selected' : ''}>${t('opt_' + v)}</option>`).join('')}</select></label>
+      ${f('ministry')}${f('ministryEn', 'text', 'dir="ltr"')}${f('supervision')}${f('supervisionEn', 'text', 'dir="ltr"')}
+      <label class="field"><span>${t('f_municipality')}</span><input class="input" name="municipality" value="${esc(st.municipality)}" list="dl-mun"><datalist id="dl-mun">${LY_MUNICIPALITIES.map(m => `<option value="${m}">`).join('')}</datalist></label>
+      ${f('schoolCode', 'text', 'dir="ltr"')}</div>`)}
+    ${card(t('gradingSettings'), `<div class="form-grid">${f('passMark', 'number', 'min="0" max="100"')}${f('maxResit', 'number', 'min="0" max="12"')}
+      ${f('bandExcellent', 'number', 'min="0" max="100"')}${f('bandVgood', 'number', 'min="0" max="100"')}${f('bandGood', 'number', 'min="0" max="100"')}<span></span>
+      ${f('absenceWarn', 'number', 'min="0" max="100"')}${f('absenceLimit', 'number', 'min="0" max="100"')}
+      <label class="field row full"><input type="checkbox" name="validateNid" ${st.validateNid ? 'checked' : ''}><span>${t('f_validateNid')}</span></label></div>
+      <p class="hint">${t('gradingHint')}</p>`)}
+    ${card(t('academicSettings'), `<div class="form-grid">${f('year')}${f('currency')}${f('periods', 'number', 'min="1" max="12"')}
       ${f('startTime', 'time')}${f('periodMinutes', 'number', 'min="20" max="120"')}${f('breakAfter', 'number', 'min="0" max="12"')}${f('breakMinutes', 'number', 'min="0" max="90"')}
       <div class="field full"><span>${t('f_workDays')}</span><div class="days">${range(0, 6).map(d => `<label class="day"><input type="checkbox" name="wd" value="${d}" ${st.workDays.includes(d) ? 'checked' : ''}><span>${dayName(d)}</span></label>`).join('')}</div></div></div>
       <div class="form-actions"><button class="btn primary" type="button" data-act="settings-save">${icon('check')}<span>${t('save')}</span></button></div>`)}
@@ -414,4 +441,46 @@ function renderSettings() {
       <label class="btn ghost">${icon('upload')}<span>${t('restore')}</span><input type="file" accept="application/json,.json" hidden data-chg="restore"></label>
       <button class="btn ghost" data-act="reset-demo">${icon('refresh')}<span>${t('resetDemo')}</span></button>
       <button class="btn danger" data-act="wipe">${icon('trash')}<span>${t('wipeData')}</span></button></div>`)}`;
+}
+
+/* ================= Public certificate candidates (Libya: grade 9 & grade 12) ================= */
+const CERT_REQUIRED = ['nationalId', 'motherName', 'dob', 'birthPlace'];
+function certCandidates(g) {
+  return DB.all('students').filter(s => s.status === 'active' && +DB.get('classes', s.classId)?.grade === +g)
+    .sort((a, b) => classLabel(DB.get('classes', a.classId)).localeCompare(classLabel(DB.get('classes', b.classId))) || loc(a).localeCompare(loc(b), LANG));
+}
+function certMissing(s) {
+  const miss = CERT_REQUIRED.filter(k => !s[k]).map(k => t('f_' + k));
+  if (s.nationalId && s.nationality === 'libyan') { const e = libyanNidError(s.nationalId, s.gender, s.dob); if (e) miss.push(e); }
+  return miss;
+}
+function renderCertificates(p) {
+  const g = p.grade === '9' ? 9 : 12; const list = certCandidates(g);
+  const ready = list.filter(s => !certMissing(s).length).length, seats = list.filter(s => s.seatNumber).length;
+  return `${pageHead(t('nav_certificates'), t('sub_certificates'), `<button class="btn ghost" data-act="cert-export" data-g="${g}">${icon('download')}<span>${t('export')}</span></button>
+      <button class="btn ghost" data-act="cert-print" data-g="${g}">${icon('printer')}<span>${t('print')}</span></button>
+      <button class="btn primary" data-act="cert-seats" data-g="${g}">${icon('sparkle')}<span>${t('assignSeats')}</span></button>`)}
+    <div class="card"><div class="toolbar"><div class="tabs"><a class="tab ${g === 9 ? 'on' : ''}" href="#/certificates?grade=9">${t('cert9')}</a><a class="tab ${g === 12 ? 'on' : ''}" href="#/certificates?grade=12">${t('cert12')}</a></div></div>
+    <div class="summary"><div class="sum-item"><span>${t('candidates')}</span><b>${fmtNum(list.length)}</b></div><div class="sum-item s-P"><span>${t('dataComplete')}</span><b>${fmtNum(ready)}</b></div>
+      <div class="sum-item s-A"><span>${t('dataIncomplete')}</span><b>${fmtNum(list.length - ready)}</b></div><div class="sum-item"><span>${t('f_seatNumber')}</span><b>${fmtNum(seats)} / ${fmtNum(list.length)}</b></div></div>
+    ${list.length ? `<div class="table-wrap"><table class="table crud"><thead><tr><th>${t('f_seatNumber')}</th><th>${t('f_name')}</th><th>${t('f_motherName')}</th><th>${t('f_nationalId')}</th><th>${t('f_dob')}</th><th>${t('f_birthPlace')}</th><th>${t('f_classId')}</th><th>${t('dataCheck')}</th><th></th></tr></thead><tbody>
+      ${list.map(s => { const m = certMissing(s); return `<tr><td data-label="${t('f_seatNumber')}" dir="ltr">${esc(s.seatNumber || '—')}</td><td data-label="${t('f_name')}"><a class="who" href="#/student/${s.id}">${avatar(s)}<span>${esc(loc(s))}</span></a></td>
+        <td data-label="${t('f_motherName')}">${esc(s.motherName || '—')}</td><td data-label="${t('f_nationalId')}" dir="ltr">${esc(s.nationalId || '—')}</td><td data-label="${t('f_dob')}">${fmtDate(s.dob)}</td><td data-label="${t('f_birthPlace')}">${esc(s.birthPlace || '—')}</td>
+        <td data-label="${t('f_classId')}">${esc(refLabel('classes', s.classId))}</td><td data-label="${t('dataCheck')}">${m.length ? `<span title="${esc(m.join('، '))}">${badge('overdue', `${t('missing')}: ${m.length}`)}</span>` : badge('active', '✓')}</td>
+        <td class="row-actions"><button class="icon-btn" data-act="crud-edit" data-key="students" data-id="${s.id}" title="${t('edit')}">${icon('edit')}</button></td></tr>`; }).join('')}</tbody></table></div>
+      <p class="hint">${t('certHint')}</p>` : emptyState(t('noStudents'))}</div>`;
+}
+function certRows(g) {
+  return certCandidates(g).map(s => [s.seatNumber || '', loc(s), s.motherName || '', s.nationalId || '', s.dob || '', s.birthPlace || '', t('opt_' + (s.gender || 'male')),
+    t('opt_' + (s.nationality || 'libyan')), refLabel('classes', s.classId), loc(S(), 'schoolName'), S().schoolCode || '', S().municipality || '']);
+}
+const certHeaders = () => [t('f_seatNumber'), t('f_name'), t('f_motherName'), t('f_nationalId'), t('f_dob'), t('f_birthPlace'), t('f_gender'), t('f_nationality'), t('f_classId'), t('f_schoolName'), t('f_schoolCode'), t('f_municipality')];
+function assignSeats(g) {
+  const list = certCandidates(g); const yr = String(S().year || '').match(/\d{4}/)?.[0] || today().slice(0, 4);
+  const used = new Set(DB.all('students').map(s => s.seatNumber).filter(Boolean)); let n = 0, seq = 1;
+  list.filter(s => !s.seatNumber).forEach(s => {
+    let code; do { code = `${yr.slice(2)}${String(g).padStart(2, '0')}${(S().schoolCode || '00').replace(/\D/g, '').slice(-3).padStart(3, '0')}${String(seq++).padStart(4, '0')}`; } while (used.has(code));
+    s.seatNumber = code; used.add(code); n++;
+  });
+  DB.save(); toast(`${t('seatsAssigned')}: ${fmtNum(n)}`); render();
 }
