@@ -17,7 +17,7 @@ const FILES = {
   },
   async tx(mode, fn) { const db = await this.open(); return new Promise((res, rej) => { const tx = db.transaction('f', mode); let out; try { out = fn(tx.objectStore('f')); } catch (e) { rej(e); return; } tx.oncomplete = () => res(out && typeof out === 'object' && 'result' in out ? out.result : out); tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error); }); },
   /* several computers: the main computer keeps every file; each computer caches what it opened */
-  net() { return typeof NETSTATE !== 'undefined' && NETSTATE.on && NETCFG.url ? { url: NETCFG.url, h: { 'x-dalala-key': NETCFG.key || '' } } : null; },
+  net() { return typeof NETSTATE !== 'undefined' && NETSTATE.on && NETCFG.url ? { url: NETCFG.url, h: { 'x-dalala-key': NETCFG.key || '', 'x-dalala-token': (typeof netToken === 'function' ? netToken() : '') } } : null; },
   pendKey: 'dalala_files_pending',
   pend() { try { return JSON.parse(localStorage.getItem(this.pendKey) || '[]'); } catch (e) { return []; } },
   setPend(a) { try { localStorage.setItem(this.pendKey, JSON.stringify([...new Set(a)])); } catch (e) { /* ignore */ } },

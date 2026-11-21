@@ -86,10 +86,11 @@ function setLang(l) { LANG = l; try { localStorage.setItem('dalala_lang', l); } 
 
 /* ---------- auth ---------- */
 function restoreSession() {
+  if (!DB.d) { USER = null; return; }
   let id = null; try { id = localStorage.getItem('dalala_session'); } catch (e) { /* ignore */ }
   USER = id ? DB.all('users').find(u => u.id === id && u.active !== false && u.role !== 'parent') || null : null;
 }
-function logout() { USER = null; try { localStorage.removeItem('dalala_session'); } catch (e) { /* ignore */ } location.hash = ''; render(); }
+function logout() { if (typeof NETSTATE !== 'undefined' && NETSTATE.on && NET_LOGOUT) { NET_LOGOUT(); return; } USER = null; try { localStorage.removeItem('dalala_session'); } catch (e) { /* ignore */ } location.hash = ''; render(); }
 
 function renderLogin() {
   $('#app').innerHTML = `<div class="login">

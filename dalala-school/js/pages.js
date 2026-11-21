@@ -28,6 +28,7 @@ function eventItem(e) {
 function renderDashboard() {
   const T = today();
   const students = DB.all('students').filter(s => s.status === 'active');
+  const fin = canView('invoices') || canView('payments') || canView('reports');
   const invs = DB.all('invoices'); const billed = sum(invs, invNet), paid = sum(invs, invPaid);
   const rate = attRateByDate(T);
   const absentToday = Object.entries(DB.d.att).filter(([k]) => k.startsWith(T + '|')).reduce((n, [, v]) => n + Object.values(v).filter(x => x === 'A').length, 0);
@@ -37,12 +38,12 @@ function renderDashboard() {
     { ic: 'users', label: t('kpiStudents'), val: fmtNum(students.length), sub: `${fmtNum(students.filter(s => s.gender === 'male').length)} ${t('opt_male')} · ${fmtNum(students.filter(s => s.gender === 'female').length)} ${t('opt_female')}`, c: 'c1', href: '#/students' },
     { ic: 'briefcase', label: t('kpiTeachers'), val: fmtNum(teachers().length), sub: `${fmtNum(DB.all('employees').length)} ${t('kpiStaffTotal')}`, c: 'c2', href: '#/employees' },
     { ic: 'check', label: t('kpiAttendanceToday'), val: rate == null ? '—' : fmtNum(rate, 1) + '%', sub: `${fmtNum(absentToday)} ${t('absentToday')}`, c: 'c3', href: '#/attendance' },
-    { ic: 'wallet', label: t('kpiCollected'), val: moneyText(paid), sub: `${fmtNum(pct(paid, billed), 1)}% ${t('ofBilled')}`, c: 'c4', href: '#/invoices' },
+    ...(fin ? [{ ic: 'wallet', label: t('kpiCollected'), val: moneyText(paid), sub: `${fmtNum(pct(paid, billed), 1)}% ${t('ofBilled')}`, c: 'c4', href: '#/invoices' }] : []),
   ];
   const minis = [
     { ic: 'layers', l: t('nav_classes'), v: DB.all('classes').length, href: '#/classes' },
     { ic: 'userPlus', l: t('pendingAdmissions'), v: DB.all('admissions').filter(a => ['new', 'review', 'interview'].includes(a.status)).length, href: '#/admissions' },
-    { ic: 'receipt', l: t('overdueInvoices'), v: invs.filter(i => invStatus(i) === 'overdue').length, href: '#/invoices' },
+    ...(fin ? [{ ic: 'receipt', l: t('overdueInvoices'), v: invs.filter(i => invStatus(i) === 'overdue').length, href: '#/invoices' }] : []),
     { ic: 'bookOpen', l: t('booksOnLoan'), v: DB.all('loans').filter(l => !l.returnDate).length, href: '#/loans' },
     { ic: 'pencil', l: t('activeHomework'), v: DB.all('homework').filter(h => h.dueDate >= T).length, href: '#/homework' },
     { ic: 'bus', l: t('nav_buses'), v: DB.all('buses').length, href: '#/buses' },
@@ -81,9 +82,9 @@ function renderDashboard() {
       ${card(t('studentsByStage'), donut(stageCount, { center: fmtNum(students.length), sub: t('student') }))}
     </div>
     <div class="grid-3">
-      ${card(t('finance'), `<div class="fin"><div class="fin-row"><span>${t('totalBilled')}</span><b>${moneyText(billed)}</b></div>
+      ${fin ? card(t('finance'), `<div class="fin"><div class="fin-row"><span>${t('totalBilled')}</span><b>${moneyText(billed)}</b></div>
         <div class="fin-row ok"><span>${t('f_paid')}</span><b>${moneyText(paid)}</b></div>${progress(pct(paid, billed), 'var(--ok)')}
-        <div class="fin-row bad"><span>${t('outstanding')}</span><b>${moneyText(billed - paid)}</b></div></div>`, `<a class="link" href="#/invoices">${t('viewAll')}</a>`)}
+        <div class="fin-row bad"><span>${t('outstanding')}</span><b>${moneyText(billed - paid)}</b></div></div>`, `<a class="link" href="#/invoices">${t('viewAll')}</a>`) : ''}
       ${card(t('upcomingEvents'), `<ul class="evs">${upcomingEvents().map(eventItem).join('') || emptyState(t('noData'))}</ul>`, `<a class="link" href="#/calendar">${t('nav_calendar')}</a>`)}
       ${mySchedule ? card(t('topClasses'), topClasses()) : card(t('latestAnnouncements'), anns.map(annCard).join('') || emptyState(t('noData')), `<a class="link" href="#/announcements">${t('viewAll')}</a>`)}
     </div>`;
@@ -336,7 +337,7 @@ function studentSections(s, { portal } = {}) {
   const k = [
     { ic: 'check', label: t('attendanceRate'), val: att.rate == null ? '—' : fmtNum(att.rate, 1) + '%', sub: `${t('absenceYear')}: ${fmtNum(ab.absRate, 1)}%${ab.level ? ' · ' + t('abs_' + ab.level) : ''}`, c: ab.level === 'limit' ? 'c5' : ab.level ? 'c4' : 'c3' },
     { ic: 'award', label: `${t('average')} — ${termName(1)}`, val: r1.avg == null ? '—' : fmtNum(r1.avg, 1) + '%', sub: r1.avg == null ? '' : t('gr_' + gradeLetter(r1.avg).key), c: 'c1' },
-    { ic: 'wallet', label: t('balanceDue'), val: moneyText(bal), sub: `${fmtNum(invs.length)} ${t('invoicesLbl')}`, c: bal > 0 ? 'c5' : 'c2' },
+    ...(canView('invoices') ? [{ ic: 'wallet', label: t('balanceDue'), val: moneyText(bal), sub: `${fmtNum(invs.length)} ${t('invoicesLbl')}`, c: bal > 0 ? 'c5' : 'c2' }] : []),
     { ic: 'star', label: t('nav_behavior'), val: `+${fmtNum(beh.filter(b => b.kind === 'positive').length)} / -${fmtNum(beh.filter(b => b.kind === 'negative').length)}`, sub: t('posNeg'), c: 'c4' },
   ];
   return `<div class="kpis">${k.map(kpi).join('')}</div>
@@ -353,7 +354,7 @@ function studentSections(s, { portal } = {}) {
     <div class="grid-2">
       ${card(t('attendanceLast30'), `<div class="summary">${['P', 'A', 'L', 'E'].map(x => `<div class="sum-item s-${x}"><span>${t('att_' + x)}</span><b>${fmtNum(att[x])}</b></div>`).join('')}</div>
         <ul class="list">${att.days.filter(d => d.st !== 'P').slice(0, 8).map(d => `<li>${badge('s' + d.st, t('att_' + d.st))}<div><b>${fmtDate(d.date, { weekday: 'long', day: 'numeric', month: 'long' })}</b></div></li>`).join('') || `<li class="muted">${t('perfectAttendance')} 🎉</li>`}</ul>`)}
-      ${card(t('fees'), invs.length ? `<table class="table compact"><thead><tr><th>${t('f_feeTypeId')}</th><th>${t('f_net')}</th><th>${t('f_balance')}</th><th>${t('f_status')}</th></tr></thead><tbody>
+      ${!canView('invoices') ? '' : card(t('fees'), invs.length ? `<table class="table compact"><thead><tr><th>${t('f_feeTypeId')}</th><th>${t('f_net')}</th><th>${t('f_balance')}</th><th>${t('f_status')}</th></tr></thead><tbody>
         ${invs.map(i => `<tr><td>${esc(refLabel('feeTypes', i.feeTypeId))}<small class="muted d-block">${esc(i.number)} · ${fmtDate(i.dueDate)}</small></td><td>${fmtMoney(invNet(i))}</td><td>${fmtMoney(invBalance(i))}</td><td>${badge(invStatus(i))}</td></tr>`).join('')}</tbody></table>` : emptyState(t('noData')))}
     </div>
     <div class="grid-2">

@@ -64,7 +64,7 @@ const LOGO = `<svg class="logo" viewBox="0 0 48 48" aria-hidden="true"><defs><li
 
 /* ---------- Formatting ---------- */
 const locale = () => (LANG === 'ar' ? 'ar-u-nu-latn' : 'en-US');
-const S = () => DB.d.settings;
+const S = () => (DB.d && DB.d.settings) || defaultSettings();
 function fmtNum(n, d = 0) { return Number(n || 0).toLocaleString(locale(), { maximumFractionDigits: d }); }
 function fmtMoney(n) { return `${fmtNum(n, 2)} <small class="cur">${esc(S().currency || '')}</small>`; }
 function moneyText(n) { return `${fmtNum(n, 2)} ${S().currency || ''}`; }

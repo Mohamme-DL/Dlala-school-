@@ -9,13 +9,15 @@
 
 const NETCFG = (window.dalalaNet && window.dalalaNet.config) || { mode: 'local' };
 const NETSTATE = { on: NETCFG.mode === 'host' || NETCFG.mode === 'client', online: false, pending: 0, version: 0, error: '' };
-let NET_BOOT = null;
+let NET_BOOT = null, NET_LOGIN = null, NET_LOGOUT = null;
+const netToken = () => { try { return localStorage.getItem('dalala_net_token') || ''; } catch (e) { return ''; } };
 
 (function () {
   if (!NETSTATE.on) return;
   const clientId = (() => { try { let id = localStorage.getItem('dalala_net_client'); if (!id) { id = uid(); localStorage.setItem('dalala_net_client', id); } return id; } catch (e) { return uid(); } })();
   const QKEY = 'dalala_net_queue', VKEY = 'dalala_net_version';
-  const H = { 'x-dalala-key': NETCFG.key || '', 'x-dalala-client': clientId, 'content-type': 'application/json' };
+  const headers = () => ({ 'x-dalala-key': NETCFG.key || '', 'x-dalala-client': clientId, 'content-type': 'application/json', 'x-dalala-token': netToken() });
+  const authLost = () => { try { localStorage.removeItem('dalala_net_token'); localStorage.removeItem('dalala_session'); localStorage.removeItem(DB_KEY); } catch (e) { /* ignore */ } location.reload(); };
   let base = {}, queue = [], sending = false, renderPending = false, polling = false, booted = false;
   try { queue = JSON.parse(localStorage.getItem(QKEY) || '[]'); } catch (e) { queue = []; }
   NETSTATE.pending = queue.length;
@@ -27,8 +29,10 @@ let NET_BOOT = null;
   async function req(path, { method = 'GET', body, timeout = 8000 } = {}) {
     const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), timeout);
     try {
-      const res = await fetch(NETCFG.url + path, { method, headers: H, body: body ? JSON.stringify(body) : undefined, signal: ctl.signal, cache: 'no-store' });
-      if (res.status === 401) throw new Error(t('netBadKey'));
+      const res = await fetch(NETCFG.url + path, { method, headers: headers(), body: body ? JSON.stringify(body) : undefined, signal: ctl.signal, cache: 'no-store' });
+      if (res.status === 401) { let j = {}; try { j = await res.json(); } catch (e) { /* ignore */ } if (j.error === 'auth' && netToken()) { authLost(); throw new Error('auth'); } const er = new Error(j.error === 'login' ? 'login' : t('netBadKey')); er.status = 401; er.code = j.error; throw er; }
+      if (res.status === 403) { const er = new Error('forbidden'); er.status = 403; throw er; }
+      if (res.status === 429) { const er = new Error('slow'); er.status = 429; throw er; }
       if (!res.ok) throw new Error('HTTP ' + res.status);
       return await res.json();
     } finally { clearTimeout(tm); }
@@ -112,7 +116,15 @@ let NET_BOOT = null;
       await req('/api/apply', { method: 'POST', body: { ops: batch }, timeout: 30000 });
       queue.splice(0, batch.length); saveQueue(); NETSTATE.online = true; NETSTATE.error = '';
       sending = false; updateBadge(); if (queue.length) flush();
-    } catch (e) { NETSTATE.online = false; NETSTATE.error = e.message; sending = false; updateBadge(); setTimeout(flush, 3000); }
+    } catch (e) {
+      sending = false;
+      if (e.status === 403) { // the server refused (no permission): drop these changes and show the server's truth
+        queue.splice(0, batch.length); saveQueue(); toast(t('noPermission'), 'err');
+        try { await reloadSnapshot(); renderPending = true; } catch (e2) { /* ignore */ }
+        if (queue.length) flush(); return;
+      }
+      NETSTATE.online = false; NETSTATE.error = e.message; updateBadge(); setTimeout(flush, 3000);
+    }
   }
   async function reloadSnapshot() {
     const s = await req('/api/snapshot', { timeout: 30000 });
@@ -145,31 +157,51 @@ let NET_BOOT = null;
 
   function updateBadge() { const b = $('#net-badge'); if (b) b.outerHTML = netBadge(); }
 
-  /* boot: fetch the shared database (or fall back to this computer's last copy when offline) */
-  NET_BOOT = async done => {
-    $('#app').innerHTML = `<div class="net-boot">${LOGO}<b>${t('netConnecting')}</b><small class="ltr">${esc(NETCFG.url)}</small></div>`;
+  /* boot: with a session, fetch the shared database (or fall back to this computer's last copy when offline).
+     Without one, the sign-in screen is shown first: the server only sends data to signed-in users. */
+  async function load() {
     let local = null; try { local = JSON.parse(localStorage.getItem(DB_KEY)); } catch (e) { local = null; }
     try {
       const s = await req('/api/snapshot', { timeout: 7000 });
       NETSTATE.online = true;
       if (s.data && Array.isArray(s.data.students)) await reloadSnapshot();
-      else if (NETCFG.mode === 'host') { // first start as main computer: share this computer's data
-        origLoad(); fill(DB.d);
-        const r = await req('/api/init', { method: 'POST', body: { data: DB.d }, timeout: 60000 }); setVersion(r.version);
-        base = snapshotOf(DB.d);
-      } else throw new Error(t('netHostEmpty'));
+      else throw new Error(t('netHostEmpty'));
     } catch (e) {
+      if (e.message === 'auth') throw e;
       NETSTATE.online = false; NETSTATE.error = e.message;
       if (local && Array.isArray(local.students)) { DB.d = fill(local); base = snapshotOf(DB.d); try { NETSTATE.version = +localStorage.getItem(VKEY) || 0; } catch (e2) { NETSTATE.version = 0; } }
       else {
         $('#app').innerHTML = `<div class="net-boot err">${icon('alert')}<b>${t('netCantReach')}</b><small class="ltr">${esc(NETCFG.url)} — ${esc(e.message)}</small><p>${t('netCantReachHint')}</p>
           <div class="btn-row"><button class="btn primary" onclick="location.reload()">${t('retry')}</button><button class="btn ghost" onclick="confirm(t('netRestartConfirm')) && window.dalalaNet.set({ mode: 'local', port: ${+NETCFG.port || 47630} })">${t('netGoLocal')}</button></div></div>`;
-        poll(); return;
+        poll(); return false;
       }
     }
-    booted = true;
-    if (queue.length) flush();
-    poll(); done();
+    booted = true; if (queue.length) flush(); poll(); return true;
+  }
+  NET_BOOT = async done => {
+    $('#app').innerHTML = `<div class="net-boot">${LOGO}<b>${t('netConnecting')}</b><small class="ltr">${esc(NETCFG.url)}</small></div>`;
+    if (!netToken()) {
+      try {   // first start as main computer: share this computer's data so that people can sign in
+        const st = await req('/api/status', { timeout: 7000 });
+        if (!st.hasData && NETCFG.mode === 'host') { origLoad(); fill(DB.d); const r = await req('/api/init', { method: 'POST', body: { data: DB.d }, timeout: 60000 }); setVersion(r.version); DB.d = null; }
+        NETSTATE.online = true;
+      } catch (e) { NETSTATE.online = false; NETSTATE.error = e.message; }
+      done(); return;
+    }
+    try { if (await load()) done(); } catch (e) { /* signed out: the page reloads */ }
+  };
+  /* sign in on the server; on success the working copy is loaded and the id of the user is returned */
+  NET_LOGIN = async (username, password) => {
+    let r; try { r = await req('/api/login', { method: 'POST', body: { username, password }, timeout: 15000 }); } catch (e) { if (e.status === 429) throw e; return null; }
+    try { localStorage.setItem('dalala_net_token', r.token); } catch (e) { return null; }
+    if (!(await load())) return null;
+    return r.userId;
+  };
+  NET_LOGOUT = async () => {
+    try { await Promise.race([flush(), sleep(1500)]); } catch (e) { /* ignore */ }
+    try { await req('/api/logout', { method: 'POST', timeout: 3000 }); } catch (e) { /* ignore */ }
+    try { ['dalala_net_token', 'dalala_session', DB_KEY, QKEY, VKEY].forEach(k => localStorage.removeItem(k)); } catch (e) { /* ignore */ }
+    location.reload();
   };
 })();
 

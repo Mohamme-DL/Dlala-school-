@@ -60,12 +60,18 @@ async function migratePasswords(adminPw) {
 /* ---------- sign in ---------- */
 let MUST_CHANGE_PW = false;
 async function login(username, password) {
-  const u = DB.all('users').find(x => x.username.toLowerCase() === String(username).trim().toLowerCase() && x.active !== false && x.role !== 'parent');
-  if (!u) return false;
-  let ok = false;
-  if (u.pwHash) ok = await verifyPassword(password, u.pwHash);
-  else if (u.password) ok = u.password === password;
-  if (!ok) return false;
+  let u;
+  if (typeof NETSTATE !== 'undefined' && NETSTATE.on) {        // several computers: the server checks the password and sends only what this user may see
+    let id = null; try { id = await NET_LOGIN(String(username).trim(), password); } catch (e) { if (e.status === 429) { toast(t('loginSlow'), 'err'); return false; } }
+    u = id ? DB.get('users', id) : null; if (!u) return false;
+  } else {
+    u = DB.all('users').find(x => x.username.toLowerCase() === String(username).trim().toLowerCase() && x.active !== false && x.role !== 'parent');
+    if (!u) return false;
+    let ok = false;
+    if (u.pwHash) ok = await verifyPassword(password, u.pwHash);
+    else if (u.password) ok = u.password === password;
+    if (!ok) return false;
+  }
   let me = u;
   if (!mainAdmin()) { const first = DB.all('users').find(x => x.role === 'admin'); if (first && first.id === u.id) me = DB.update('users', u.id, { main: true }); }
   if (me.main) await migratePasswords(password);
@@ -137,11 +143,11 @@ function revealPasswordFlow(u) {
 
 Object.assign(I18N.ar, {
   revealPass: 'إظهار كلمة المرور', revealAsk: 'للمدير الرئيسي فقط. أدخل كلمة مرورك أنت للتأكيد.', revealNone: 'لا تتوفر نسخة مقروءة لهذه الكلمة. عيّن كلمة مرور جديدة للمستخدم.',
-  changeDefaultPw: 'غيّر كلمة المرور الافتراضية الآن', errMainAdmin: 'حساب المدير الرئيسي لا يعدّله إلا هو', errMainPass: 'يغيّر المدير الرئيسي كلمة مروره من قائمة حسابه (تغيير كلمة المرور)',
+  loginSlow: 'محاولات كثيرة. انتظر دقيقة ثم أعد المحاولة', changeDefaultPw: 'غيّر كلمة المرور الافتراضية الآن', errMainAdmin: 'حساب المدير الرئيسي لا يعدّله إلا هو', errMainPass: 'يغيّر المدير الرئيسي كلمة مروره من قائمة حسابه (تغيير كلمة المرور)',
   passKeepHint: 'عند التعديل اتركها فارغة للإبقاء على كلمة المرور الحالية',
 });
 Object.assign(I18N.en, {
   revealPass: 'Show password', revealAsk: 'Main administrator only. Enter your own password to confirm.', revealNone: 'No readable copy exists for this password. Set a new password for the user.',
-  changeDefaultPw: 'Change the default password now', errMainAdmin: 'Only the main administrator can edit this account', errMainPass: 'The main administrator changes their own password from the account menu',
+  loginSlow: 'Too many attempts. Wait a minute and try again', changeDefaultPw: 'Change the default password now', errMainAdmin: 'Only the main administrator can edit this account', errMainPass: 'The main administrator changes their own password from the account menu',
   passKeepHint: 'When editing, leave blank to keep the current password',
 });
