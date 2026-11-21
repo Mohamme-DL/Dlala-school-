@@ -181,9 +181,9 @@ const netToken = () => { try { return localStorage.getItem('dalala_net_token') |
   NET_BOOT = async done => {
     $('#app').innerHTML = `<div class="net-boot">${LOGO}<b>${t('netConnecting')}</b><small class="ltr">${esc(NETCFG.url)}</small></div>`;
     if (!netToken()) {
-      try {   // first start as main computer: share this computer's data so that people can sign in
+      try {   // first start (main computer, or the first computer on a standalone server): share the starting data so that people can sign in
         const st = await req('/api/status', { timeout: 7000 });
-        if (!st.hasData && NETCFG.mode === 'host') { origLoad(); fill(DB.d); const r = await req('/api/init', { method: 'POST', body: { data: DB.d }, timeout: 60000 }); setVersion(r.version); DB.d = null; }
+        if (!st.hasData) { origLoad(); fill(DB.d); const r = await req('/api/init', { method: 'POST', body: { data: DB.d }, timeout: 60000 }); setVersion(r.version); DB.d = null; }
         NETSTATE.online = true;
       } catch (e) { NETSTATE.online = false; NETSTATE.error = e.message; }
       done(); return;
