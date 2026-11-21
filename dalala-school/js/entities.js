@@ -582,7 +582,7 @@ function printReceipt(p) {
   printHTML(`${printHeader(t('receipt'))}<div class="pbox"><div class="kv"><span>${t('f_receiptNo')}</span><b>${esc(p.receiptNo)}</b></div><div class="kv"><span>${t('f_date')}</span><b>${fmtDate(p.date)}</b></div>
     <div class="kv"><span>${t('receivedFrom')}</span><b>${esc(s ? (LANG === 'en' && s.guardianNameEn ? s.guardianNameEn : s.guardianName) : '—')}</b></div><div class="kv"><span>${t('f_studentId')}</span><b>${esc(loc(s))} — ${esc(refLabel('classes', s?.classId))}</b></div>
     <div class="kv"><span>${t('forPayment')}</span><b>${esc(refLabel('feeTypes', inv?.feeTypeId))} (${esc(inv?.number)})</b></div><div class="kv"><span>${t('f_method')}</span><b>${t('opt_' + p.method)}</b></div></div>
-    <div class="pamount">${t('f_amount')}: <b>${moneyText(p.amount)}</b></div>
+    <div class="pamount">${t('f_amount')}: <b>${moneyText(p.amount)}</b></div>${wordsLine(p.amount)}
     <div class="ptotals"><div><span>${t('f_net')}</span><b>${moneyText(invNet(inv))}</b></div><div><span>${t('f_paid')}</span><b>${moneyText(invPaid(inv))}</b></div><div><span>${t('f_balance')}</span><b>${moneyText(invBalance(inv))}</b></div></div>
     <div class="psign"><div>${t('accountantSign')}</div><div>${t('stamp')}</div></div>`, { name: 'receipt', title: t('receipt') });
 }

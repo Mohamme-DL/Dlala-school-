@@ -15,11 +15,33 @@ const FILES = {
     if (this._db) return Promise.resolve(this._db);
     return new Promise((res, rej) => { const r = indexedDB.open('dalala_files', 1); r.onupgradeneeded = () => r.result.createObjectStore('f'); r.onsuccess = () => { this._db = r.result; res(r.result); }; r.onerror = () => rej(r.error); });
   },
-  async tx(mode, fn) { const db = await this.open(); return new Promise((res, rej) => { const tx = db.transaction('f', mode); let out; try { out = fn(tx.objectStore('f')); } catch (e) { rej(e); return; } tx.oncomplete = () => res(out && out.result !== undefined ? out.result : out); tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error); }); },
-  put(id, blob) { return this.tx('readwrite', s => s.put(blob, id)); },
-  get(id) { return this.tx('readonly', s => s.get(id)); },
-  del(id) { return this.tx('readwrite', s => s.delete(id)); },
+  async tx(mode, fn) { const db = await this.open(); return new Promise((res, rej) => { const tx = db.transaction('f', mode); let out; try { out = fn(tx.objectStore('f')); } catch (e) { rej(e); return; } tx.oncomplete = () => res(out && typeof out === 'object' && 'result' in out ? out.result : out); tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error); }); },
+  /* several computers: the main computer keeps every file; each computer caches what it opened */
+  net() { return typeof NETSTATE !== 'undefined' && NETSTATE.on && NETCFG.url ? { url: NETCFG.url, h: { 'x-dalala-key': NETCFG.key || '' } } : null; },
+  pendKey: 'dalala_files_pending',
+  pend() { try { return JSON.parse(localStorage.getItem(this.pendKey) || '[]'); } catch (e) { return []; } },
+  setPend(a) { try { localStorage.setItem(this.pendKey, JSON.stringify([...new Set(a)])); } catch (e) { /* ignore */ } },
+  async upload(id, blob) { const n = this.net(); if (!n) return true; try { const r = await fetch(`${n.url}/api/file/${id}`, { method: 'PUT', headers: n.h, body: blob }); return r.ok; } catch (e) { return false; } },
+  async put(id, blob) {
+    await this.tx('readwrite', s => s.put(blob, id));
+    if (this.net() && !(await this.upload(id, blob))) this.setPend([...this.pend(), id]);
+  },
+  async get(id) {
+    const local = await this.tx('readonly', s => s.get(id)); if (local) return local;
+    const n = this.net(); if (!n) return null;
+    try { const r = await fetch(`${n.url}/api/file/${id}`, { headers: n.h }); if (!r.ok) return null; const b = await r.blob(); await this.tx('readwrite', s => s.put(b, id)); return b; } catch (e) { return null; }
+  },
+  async del(id) {
+    await this.tx('readwrite', s => s.delete(id));
+    const n = this.net(); if (n) { try { await fetch(`${n.url}/api/file/${id}`, { method: 'DELETE', headers: n.h }); } catch (e) { /* ignore */ } }
+  },
+  async flush() {      // resend files that could not reach the main computer while it was offline
+    const ids = this.pend(); if (!ids.length || !this.net()) return; const left = [];
+    for (const id of ids) { const b = await this.tx('readonly', s => s.get(id)).catch(() => null); if (b && !(await this.upload(id, b))) left.push(id); }
+    this.setPend(left);
+  },
 };
+setTimeout(() => { FILES.flush(); setInterval(() => FILES.flush(), 60000); }, 4000);
 function loadImage(file) {
   return new Promise((res, rej) => { const u = URL.createObjectURL(file); const im = new Image(); im.onload = () => res({ im, u }); im.onerror = () => { URL.revokeObjectURL(u); rej(new Error('image')); }; im.src = u; });
 }
@@ -28,7 +50,7 @@ async function scaledBlob(file, max, q) {
   const k = Math.min(1, max / Math.max(im.width, im.height)); const w = Math.round(im.width * k), h = Math.round(im.height * k);
   const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); x.drawImage(im, 0, 0, w, h);
   URL.revokeObjectURL(u);
-  return new Promise((res, rej) => c.toBlob(b => (b ? res(b) : rej(new Error('image'))), 'image/jpeg', q));
+  return new Promise((res, rej) => c.toBlob(b => { if (!b) return rej(new Error('image')); b.w = w; b.h = h; res(b); }, 'image/jpeg', q));
 }
 async function squarePhoto(file) {           // centred square crop, small enough to live in the database
   const { im, u } = await loadImage(file);
@@ -63,8 +85,10 @@ const DOC_KINDS = ['idCard', 'birthCert', 'familyBook', 'passport', 'certificate
 function docsCard(ownerType, ownerId) {
   if (!canView('docs')) return '';
   const rows = DB.all('docs').filter(d => d.ownerType === ownerType && d.ownerId === ownerId).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const canScan = !!window.dalalaScan;
   const up = canEdit('docs') ? `<div class="doc-up"><select class="input sm" data-dx-kind>${DOC_KINDS.map(k => `<option value="${k}">${t('doc_' + k)}</option>`).join('')}</select>
-    <label class="btn primary sm">${icon('plus')}<span>${t('addScan')}</span><input type="file" hidden multiple accept="image/*,application/pdf" data-dx-file data-ot="${ownerType}" data-oid="${ownerId}"></label></div><p class="muted hint">${t('scanHint')}</p>` : '';
+    ${canScan ? `<button type="button" class="btn primary sm" data-act="doc-scan" data-ot="${ownerType}" data-oid="${ownerId}">${icon('printer')}<span>${t('scanNow')}</span></button>` : ''}
+    <label class="btn ${canScan ? 'ghost' : 'primary'} sm">${icon('plus')}<span>${t('addFile')}</span><input type="file" hidden multiple accept="image/*,application/pdf" data-dx-file data-ot="${ownerType}" data-oid="${ownerId}"></label></div><p class="muted hint">${t(canScan ? 'scanHint' : 'scanHintNoDevice')}</p>` : '';
   const list = rows.length ? `<div class="doc-list">${rows.map(d => `<div class="doc-row"><span class="doc-ic">${icon('file')}</span><div class="doc-info"><b>${esc(t('doc_' + d.kind))}</b><small class="muted">${esc(d.fileName)} · ${fmtDate(d.date)} · ${Math.max(1, Math.round((d.size || 0) / 1024))} KB</small></div>
       <button class="icon-btn" data-act="doc-view" data-id="${d.id}" title="${t('view')}">${icon('eye')}</button><button class="icon-btn" data-act="doc-save" data-id="${d.id}" title="${t('download')}">${icon('download')}</button>
       ${canEdit('docs') ? `<button class="icon-btn danger" data-act="doc-del" data-id="${d.id}" title="${t('delete')}">${icon('trash')}</button>` : ''}</div>`).join('')}</div>` : `<p class="muted">${t('noDocs')}</p>`;
@@ -85,6 +109,7 @@ document.addEventListener('change', async e => {
   inp.value = ''; if (n) { toast(t('saved')); render(); }
 });
 const EXTRA_ACT = {
+  'doc-scan': el => scanFlow(el.dataset.ot, el.dataset.oid, el.closest('.doc-up').querySelector('[data-dx-kind]').value),
   'doc-view': async el => {
     const d = DB.get('docs', el.dataset.id); const blob = d && await FILES.get(d.id);
     if (!blob) return toast(t('errFileMissing'), 'err');
@@ -101,6 +126,92 @@ const EXTRA_ACT = {
   'emp-print': el => printEmployeeCard(DB.get('employees', el.dataset.id)),
 };
 function saveBlob(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 800); }
+
+/* ---------- direct scanning: every page the scanner delivers goes into ONE multi-page PDF ---------- */
+async function pdfFromJpegs(items) {
+  const enc = new TextEncoder(), parts = [], offs = []; let len = 0;
+  const push = x => { const u = typeof x === 'string' ? enc.encode(x) : x; parts.push(u); len += u.length; };
+  const num = v => (+v).toFixed(2);
+  push('%PDF-1.4\n');
+  const obj = (n, body) => { offs[n] = len; push(`${n} 0 obj\n${body}\nendobj\n`); };
+  const n = items.length;
+  obj(1, '<</Type/Catalog/Pages 2 0 R>>');
+  obj(2, `<</Type/Pages/Count ${n}/Kids[${items.map((_, i) => `${3 + 3 * i} 0 R`).join(' ')}]>>`);
+  for (let i = 0; i < n; i++) {
+    const it = items[i], bytes = new Uint8Array(await it.blob.arrayBuffer());
+    const land = it.w > it.h * 1.15, PW = land ? 841.89 : 595.28, PH = land ? 595.28 : 841.89, M = 14;
+    const k = Math.min((PW - 2 * M) / it.w, (PH - 2 * M) / it.h), w = it.w * k, h = it.h * k, x = (PW - w) / 2, y = (PH - h) / 2;
+    const content = `q ${num(w)} 0 0 ${num(h)} ${num(x)} ${num(y)} cm /Im0 Do Q`;
+    obj(3 + 3 * i, `<</Type/Page/Parent 2 0 R/MediaBox[0 0 ${num(PW)} ${num(PH)}]/Resources<</XObject<</Im0 ${5 + 3 * i} 0 R>>>>/Contents ${4 + 3 * i} 0 R>>`);
+    obj(4 + 3 * i, `<</Length ${content.length}>>\nstream\n${content}\nendstream`);
+    offs[5 + 3 * i] = len;
+    push(`${5 + 3 * i} 0 obj\n<</Type/XObject/Subtype/Image/Width ${it.w}/Height ${it.h}/ColorSpace/DeviceRGB/BitsPerComponent 8/Filter/DCTDecode/Length ${bytes.length}>>\nstream\n`); push(bytes); push('\nendstream\nendobj\n');
+  }
+  const total = 3 + 3 * n, xref = len;
+  push(`xref\n0 ${total}\n0000000000 65535 f \n${offs.slice(1, total).map(o => `${String(o).padStart(10, '0')} 00000 n \n`).join('')}trailer\n<</Size ${total}/Root 1 0 R>>\nstartxref\n${xref}\n%%EOF\n`);
+  return new Blob(parts, { type: 'application/pdf' });
+}
+function askScanNext(count) {
+  return new Promise(resolve => {
+    let done = false; const fin = v => { if (done) return; done = true; closeModal(); resolve(v); };
+    const root = modal({ title: t('scanNow'), size: 'sm', body: `<div class="confirm-msg">${icon('check')}<p>${t('scanPages')}: <b>${fmtNum(count)}</b><br>${t('scanMore')}</p></div>`,
+      footer: `<button class="btn ghost" data-fin>${t('scanDone')}</button><button class="btn primary" data-more>${icon('plus')}<span>${t('scanNext')}</span></button>` });
+    $('[data-fin]', root).onclick = () => fin(false); $('[data-more]', root).onclick = () => fin(true);
+    $('[data-x]', root).onclick = () => fin(false);
+    root.firstElementChild.addEventListener('mousedown', e => { if (e.target === root.firstElementChild) fin(false); });
+  });
+}
+async function scanFlow(ownerType, ownerId, kind) {
+  const pages = [];
+  try {
+    for (;;) {
+      const r = await window.dalalaScan.acquire();
+      if (!r.ok) { if (!r.canceled) toast(`${t('scanFail')}${r.error ? ': ' + r.error : ''}`, 'err'); break; }
+      const raw = await (await fetch('data:image/jpeg;base64,' + r.data)).blob();
+      const b = await scaledBlob(raw, 2300, 0.8); pages.push({ blob: b, w: b.w, h: b.h });
+      if (!(await askScanNext(pages.length))) break;
+    }
+    if (!pages.length) return;
+    const pdf = await pdfFromJpegs(pages); const id = uid(); await FILES.put(id, pdf);
+    DB.insert('docs', { id, ownerType, ownerId, kind, fileName: `scan-${today()}.pdf`, mime: 'application/pdf', size: pdf.size, pages: pages.length, date: today(), by: byName() });
+    toast(`${t('saved')} — ${fmtNum(pages.length)} ${t('scanPagesUnit')}`); render();
+  } catch (err) { console.error(err); toast(t('scanFail'), 'err'); }
+}
+
+/* ---------- amount in words (Arabic, Libyan dinar / dirham) ---------- */
+const AR_ONES = ['', 'واحد', 'اثنان', 'ثلاثة', 'أربعة', 'خمسة', 'ستة', 'سبعة', 'ثمانية', 'تسعة', 'عشرة', 'أحد عشر', 'اثنا عشر', 'ثلاثة عشر', 'أربعة عشر', 'خمسة عشر', 'ستة عشر', 'سبعة عشر', 'ثمانية عشر', 'تسعة عشر'];
+const AR_TENS = ['', '', 'عشرون', 'ثلاثون', 'أربعون', 'خمسون', 'ستون', 'سبعون', 'ثمانون', 'تسعون'];
+const AR_HUND = ['', 'مائة', 'مائتان', 'ثلاثمائة', 'أربعمائة', 'خمسمائة', 'ستمائة', 'سبعمائة', 'ثمانمائة', 'تسعمائة'];
+function arBelow1000(n) {
+  const out = [], h = Math.floor(n / 100), r = n % 100;
+  if (h) out.push(AR_HUND[h]);
+  if (r) { if (r < 20) out.push(AR_ONES[r]); else { const o = r % 10; out.push(o ? `${AR_ONES[o]} و${AR_TENS[Math.floor(r / 10)]}` : AR_TENS[Math.floor(r / 10)]); } }
+  return out.join(' و');
+}
+function arScale(n, one, two, few, many) {       // n of a scale word (ألف / مليون): the grammar changes with the count
+  if (n === 1) return one; if (n === 2) return two;
+  const r = n % 100;
+  return `${arBelow1000(n)} ${r >= 3 && r <= 10 ? few : r >= 11 ? many : one}`;
+}
+function arInteger(n) {
+  if (n === 0) return 'صفر';
+  const m = Math.floor(n / 1e6), th = Math.floor((n % 1e6) / 1000), rest = n % 1000, out = [];
+  if (m) out.push(arScale(m, 'مليون', 'مليونان', 'ملايين', 'مليونًا'));
+  if (th) out.push(arScale(th, 'ألف', 'ألفان', 'آلاف', 'ألفًا'));
+  if (rest) out.push(arBelow1000(rest));
+  return out.join(' و');
+}
+const countedNoun = (n, gen, acc, plural) => { const r = n % 100; return r === 0 ? gen : r >= 3 && r <= 10 ? plural : acc; };
+function amountWords(v) {
+  const cur = String(S().currency || ''); if (LANG !== 'ar' || !/د\.?\s?ل|LYD/i.test(cur) || !(+v >= 0) || +v > 999999999) return '';
+  const total = Math.round(+v * 1000), d = Math.floor(total / 1000), m = total % 1000;
+  if (!d && !m) return '';
+  const parts = [];
+  if (d) parts.push(d === 1 ? 'دينار ليبي واحد' : d === 2 ? 'ديناران ليبيان' : `${arInteger(d)} ${countedNoun(d, 'دينار ليبي', 'دينارًا ليبيًا', 'دنانير ليبية')}`);
+  if (m) parts.push(m === 1 ? 'درهم واحد' : m === 2 ? 'درهمان' : `${arInteger(m)} ${countedNoun(m, 'درهم', 'درهمًا', 'دراهم')}`);
+  return `${t('onlyWords')} ${parts.join(' و')} ${t('noMore')}`;
+}
+const wordsLine = v => { const w = amountWords(v); return w ? `<div class="pwords">${esc(w)}</div>` : ''; };
 
 /* backup/restore carry the scans too, otherwise a restored copy would lose them */
 async function filesForBackup() {
@@ -219,7 +330,7 @@ function printPaySlip(r) {
   printHTML(`${printHeader(t('paySlip'))}<div class="pbox"><div class="kv"><span>${t('f_employeeId')}</span><b>${esc(loc(e))}</b></div><div class="kv"><span>${t('f_role')}</span><b>${esc(e.role ? t('opt_' + e.role) : '—')}</b></div>
     <div class="kv"><span>${t('f_month')}</span><b>${esc(monthLabel(r.month))}</b></div><div class="kv"><span>${t('f_base')}</span><b>${moneyText(r.base)}</b></div><div class="kv"><span>${t('f_allowances')}</span><b>${moneyText(r.allowances || 0)}</b></div>
     <div class="kv"><span>${t('f_bonus')}</span><b>${moneyText(r.bonus || 0)}</b></div><div class="kv"><span>${t('f_deductions')}</span><b>${moneyText(r.deductions || 0)}</b></div></div>
-    <div class="pamount">${t('f_net')}: <b>${moneyText(payNet(r))}</b></div>
+    <div class="pamount">${t('f_net')}: <b>${moneyText(payNet(r))}</b></div>${wordsLine(payNet(r))}
     <div class="ptotals"><div><span>${t('f_paid')}</span><b>${moneyText(payPaid(r))}</b></div><div><span>${t('f_balance')}</span><b>${moneyText(payBal(r))}</b></div></div>
     <div class="psign"><div>${t('accountantSign')}</div><div>${t('receiverSign')}</div><div>${t('stamp')}</div></div>`, { name: 'payslip', title: t('paySlip') });
 }
@@ -228,7 +339,7 @@ function printVoucher(p) {
   printHTML(`${printHeader(t('payVoucher'))}${p.voided ? `<div class="pamount" style="color:#b91c1c;border-color:#b91c1c">${t('voided')} — ${esc(p.voidReason || '')}</div>` : ''}
     <div class="pbox"><div class="kv"><span>${t('f_voucherNo')}</span><b>${esc(p.voucherNo)}</b></div><div class="kv"><span>${t('f_date')}</span><b>${fmtDate(p.date)}</b></div>
     <div class="kv"><span>${t('paidTo')}</span><b>${esc(loc(e))}</b></div><div class="kv"><span>${t('forPayment')}</span><b>${t('salaryOf')} ${esc(monthLabel(pr.month))}</b></div><div class="kv"><span>${t('f_method')}</span><b>${t('opt_' + p.method)}</b></div></div>
-    <div class="pamount">${t('f_amount')}: <b>${moneyText(p.amount)}</b></div>
+    <div class="pamount">${t('f_amount')}: <b>${moneyText(p.amount)}</b></div>${wordsLine(p.amount)}
     <div class="ptotals"><div><span>${t('f_net')}</span><b>${moneyText(payNet(pr))}</b></div><div><span>${t('f_paid')}</span><b>${moneyText(payPaid(pr))}</b></div><div><span>${t('f_balance')}</span><b>${moneyText(payBal(pr))}</b></div></div>
     <div class="psign"><div>${t('accountantSign')}</div><div>${t('receiverSign')}</div><div>${t('stamp')}</div></div>`, { name: 'voucher-' + p.voucherNo, title: t('payVoucher') });
 }
@@ -290,7 +401,7 @@ Object.assign(I18N.ar, {
   errOverpaySalary: 'المبلغ يتجاوز المتبقي من صافي الراتب', errLocked: 'لا يعدّل السند بعد إصداره إلا مدير النظام. للتصحيح ألغِ السند وأنشئ بدلاً منه.', errVoidedLocked: 'السند ملغى ولا يمكن تعديله', errPayrollDup: 'يوجد كشف لهذا الموظف في نفس الشهر', errPayrollBelowPaid: 'صافي الراتب أقل من المصروف فعلاً',
   moveType: 'نوع الحركة', typeIn: 'قبض', typeOut: 'صرف', party: 'الجهة', moneyIn: 'المقبوض', moneyOut: 'المصروف', netCash: 'الصافي', balanceRun: 'الرصيد',
   created: 'تم إنشاء', create: 'إنشاء', close: 'إغلاق', view: 'عرض', download: 'تنزيل', personalInfo: 'البيانات الشخصية', empCard: 'بطاقة موظف',
-  docsFiles: 'الأوراق الشخصية (ممسوحة ضوئياً)', addScan: 'إضافة ملف', scanHint: 'اختر صورة أو PDF من الماسح الضوئي أو الهاتف. تُحفظ داخل البرنامج على هذا الجهاز.', noDocs: 'لا توجد أوراق محفوظة بعد',
+  docsFiles: 'الأوراق الشخصية (ممسوحة ضوئياً)', scanNow: 'مسح مباشر', addFile: 'رفع ملف (PDF أو صورة)', scanHint: 'اضغط «مسح مباشر» لتشغيل الماسح الضوئي، وكل الصفحات تُحفظ في ملف PDF واحد. أو ارفع ملف PDF أو صورة جاهزاً.', scanHintNoDevice: 'ارفع ملف PDF أو صورة من الماسح الضوئي أو الهاتف.', scanPages: 'عدد الصفحات الممسوحة', scanMore: 'هل تريد مسح صفحة أخرى؟', scanNext: 'صفحة أخرى', scanDone: 'إنهاء وحفظ PDF', scanFail: 'تعذّر المسح الضوئي', scanPagesUnit: 'صفحة', onlyWords: 'فقط', noMore: 'لا غير', noDocs: 'لا توجد أوراق محفوظة بعد',
   doc_idCard: 'بطاقة هوية / رقم وطني', doc_birthCert: 'شهادة ميلاد', doc_familyBook: 'كتيب العائلة / ورقة قيد', doc_passport: 'جواز سفر', doc_certificate: 'شهادة دراسية', doc_contract: 'عقد / قرار تعيين', doc_medicalDoc: 'ورقة طبية', doc_photoDoc: 'صورة شخصية ورقية', doc_otherDoc: 'أخرى',
   errFileBig: 'الملف كبير (الحد 12 ميجا)', errImage: 'تعذّر قراءة الصورة', errFileMissing: 'الملف غير موجود على هذا الجهاز',
   noPermission: 'ليست لديك صلاحية لهذا الإجراء', choosePhoto: 'اختيار صورة', removePhoto: 'حذف الصورة',
@@ -305,7 +416,7 @@ Object.assign(I18N.en, {
   errOverpaySalary: 'Amount exceeds the remaining net salary', errLocked: 'Only the administrator can edit an issued voucher. To correct it, void it and create a new one.', errVoidedLocked: 'This voucher is void and cannot be edited', errPayrollDup: 'A sheet for this employee and month already exists', errPayrollBelowPaid: 'Net is lower than the amount already paid',
   moveType: 'Type', typeIn: 'Receipt', typeOut: 'Payment', party: 'Party', moneyIn: 'Received', moneyOut: 'Paid out', netCash: 'Net', balanceRun: 'Balance',
   created: 'Created', create: 'Create', close: 'Close', view: 'View', download: 'Download', personalInfo: 'Personal information', empCard: 'Employee card',
-  docsFiles: 'Personal documents (scans)', addScan: 'Add file', scanHint: 'Pick an image or PDF from your scanner or phone. Files are kept inside the program on this computer.', noDocs: 'No documents saved yet',
+  docsFiles: 'Personal documents (scans)', scanNow: 'Scan now', addFile: 'Upload file (PDF or image)', scanHint: 'Press “Scan now” to use the scanner; all pages are saved as one PDF. Or upload a ready PDF or image.', scanHintNoDevice: 'Upload a PDF or image from your scanner or phone.', scanPages: 'Pages scanned', scanMore: 'Scan another page?', scanNext: 'Another page', scanDone: 'Finish and save PDF', scanFail: 'Scanning failed', scanPagesUnit: 'page(s)', onlyWords: 'Only', noMore: 'and no more', noDocs: 'No documents saved yet',
   doc_idCard: 'ID card / national number', doc_birthCert: 'Birth certificate', doc_familyBook: 'Family book', doc_passport: 'Passport', doc_certificate: 'Certificate', doc_contract: 'Contract / appointment', doc_medicalDoc: 'Medical paper', doc_photoDoc: 'Printed photo', doc_otherDoc: 'Other',
   errFileBig: 'File too large (max 12 MB)', errImage: 'Could not read the image', errFileMissing: 'File is not on this computer',
   noPermission: 'You do not have permission for this action', choosePhoto: 'Choose photo', removePhoto: 'Remove photo',

@@ -550,3 +550,4 @@ td.editable:hover .slot { outline: 2px solid var(--primary); outline-offset: -2p
 .kv-list{display:grid;gap:6px}
 .kv-list .kv{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px dashed var(--line,#e5e7eb)}
 .kv-list .kv span{color:var(--muted,#64748b)}
+.pwords{text-align:center;font-size:14px;margin:4px 0 12px;padding:6px 10px;border:1px dashed #94a3b8;border-radius:8px}

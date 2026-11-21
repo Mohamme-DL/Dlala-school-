@@ -17,6 +17,7 @@ const crypto = require('crypto');
 const NUMBERED = { number: true, code: true };
 const AUTO_CODE = /^([A-Za-z]+-)(\d+)$/;
 const LOG_MAX = 5000;
+const FILE_MAX = 40 * 1024 * 1024;
 
 function createServer({ port, key, dir, onEvent = () => {}, rules = {} }) {
   const file = path.join(dir, 'shared-db.json');
@@ -127,7 +128,7 @@ function createServer({ port, key, dir, onEvent = () => {}, rules = {} }) {
   const since = v => (log.length && log[0].v <= v + 1) || v === state.version ? { version: state.version, entries: log.filter(e => e.v > v) } : null;
 
   const server = http.createServer((req, res) => {
-    const send = (code, obj) => { res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type, x-dalala-key, x-dalala-client', 'access-control-allow-methods': 'GET, POST, OPTIONS', 'cache-control': 'no-store' }); res.end(JSON.stringify(obj)); };
+    const send = (code, obj) => { res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type, x-dalala-key, x-dalala-client', 'access-control-allow-methods': 'GET, POST, PUT, DELETE, OPTIONS', 'cache-control': 'no-store' }); res.end(JSON.stringify(obj)); };
     if (req.method === 'OPTIONS') return send(204, {});
     const url = new URL(req.url, 'http://x');
     const okKey = (() => { const k = String(req.headers['x-dalala-key'] || ''); return k.length === key.length && crypto.timingSafeEqual(Buffer.from(k), Buffer.from(key)); })();
@@ -157,6 +158,19 @@ function createServer({ port, key, dir, onEvent = () => {}, rules = {} }) {
         const r = apply(msg.ops, cid); return send(200, r);
       });
       return undefined;
+    }
+    /* scanned documents / photos: binary files kept next to the database (not inside the JSON) */
+    const fm = url.pathname.match(/^\/api\/file\/([A-Za-z0-9_-]{4,64})$/);
+    if (fm) {
+      const fdir = path.join(dir, 'files'), fp = path.join(fdir, fm[1]);
+      if (req.method === 'GET') { try { const b = fs.readFileSync(fp); res.writeHead(200, { 'content-type': 'application/octet-stream', 'content-length': b.length, 'access-control-allow-origin': '*', 'cache-control': 'no-store' }); return res.end(b); } catch (e) { return send(404, { error: 'not found' }); } }
+      if (req.method === 'DELETE') { try { fs.rmSync(fp, { force: true }); } catch (e) { /* ignore */ } return send(200, { ok: true }); }
+      if (req.method === 'PUT') {
+        const chunks = []; let n = 0, dead = false;
+        req.on('data', c => { n += c.length; if (n > FILE_MAX) { dead = true; send(413, { error: 'too big' }); req.destroy(); } else chunks.push(c); });
+        req.on('end', () => { if (dead) return; try { fs.mkdirSync(fdir, { recursive: true }); const tmp = fp + '.tmp'; fs.writeFileSync(tmp, Buffer.concat(chunks)); fs.renameSync(tmp, fp); send(200, { ok: true, size: n }); } catch (e) { send(500, { error: e.message }); } });
+        return undefined;
+      }
     }
     return send(404, { error: 'not found' });
   });

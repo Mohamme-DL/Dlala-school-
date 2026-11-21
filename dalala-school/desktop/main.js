@@ -127,6 +127,23 @@ ipcMain.handle('pdf:save', async (e, o = {}) => {
     return { ok: true, path: r.filePath };
   } catch (err) { return { ok: false, error: String(err && err.message || err) }; }
 });
+/* direct scanning through Windows WIA (the scanner's own dialog opens; one page per call) */
+ipcMain.handle('scan:acquire', (e) => new Promise(resolve => {
+  if (!fromMain(e)) return resolve({ ok: false, error: 'denied' });
+  if (process.platform !== 'win32') return resolve({ ok: false, error: 'unsupported' });
+  const { execFile } = require('child_process');
+  const out = path.join(os.tmpdir(), 'dalala-scan-' + Date.now() + '-' + Math.floor(Math.random() * 1e6) + '.jpg');
+  const ps = `$ErrorActionPreference='Stop'; try { $d = New-Object -ComObject WIA.CommonDialog; $i = $d.ShowAcquireImage(1,1,2,'{B96B3CAE-0728-11D3-9D7B-0000F81EF32E}',$false,$true,$false); if ($i -eq $null) { 'CANCEL' } else { $i.SaveFile('${out.replace(/'/g, "''")}'); 'OK' } } catch { 'ERR:' + $_.Exception.Message }`;
+  execFile('powershell.exe', ['-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass', '-Command', ps], { timeout: 10 * 60 * 1000, windowsHide: true, maxBuffer: 1 << 20 }, (err, stdout) => {
+    const s = String(stdout || '').trim();
+    try {
+      if (s === 'OK' && fs.existsSync(out)) { const b = fs.readFileSync(out); fs.rmSync(out, { force: true }); return resolve({ ok: true, data: b.toString('base64') }); }
+    } catch (x) { /* fall through */ }
+    try { fs.rmSync(out, { force: true }); } catch (x) { /* ignore */ }
+    if (s === 'CANCEL') return resolve({ ok: false, canceled: true });
+    resolve({ ok: false, error: s.startsWith('ERR:') ? s.slice(4) : (err && err.message) || 'scan failed' });
+  });
+}));
 /* automatic backups: <userData>/backups/<name>.json, daily ones kept for 30 days */
 const BK_DIR = () => path.join(app.getPath('userData'), 'backups');
 const bkName = n => String(n || '').replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 80);
