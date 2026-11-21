@@ -8,7 +8,7 @@ SetCompressor /SOLID lzma
 !define APPNAME     "Dalala School System"
 !define APPNAME_AR  "منظومة دلالة للمدارس"
 !ifndef VERSION
-  !define VERSION   "1.3.1"
+  !define VERSION   "1.4.0"
 !endif
 !define EXE         "Dalala School System.exe"
 !define UNINST_KEY  "Software\Microsoft\Windows\CurrentVersion\Uninstall\DalalaSchoolSystem"
