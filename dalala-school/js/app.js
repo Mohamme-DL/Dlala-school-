@@ -125,7 +125,7 @@ function topbar(page) {
   return `<header class="topbar"><button class="icon-btn only-m" data-act="menu">${icon('menu')}</button>
     <div class="crumbs"><span>${t('appName')}</span><b>${title}</b></div><span class="grow"></span>
     ${netBadge()}<button class="btn ghost sm" data-act="lang" title="Language">${icon('globe')}<span>${LANG === 'ar' ? 'EN' : 'ع'}</span></button>
-    <button class="icon-btn" data-act="theme" title="${t('theme')}">${icon(isDark() ? 'sun' : 'moon')}</button>
+    ${window.dalalaWindow ? `<button class="icon-btn" data-act="fullscreen" title="${t('fullscreen')} (F11)">${icon('expand')}</button>` : ''}<button class="icon-btn" data-act="theme" title="${t('theme')}">${icon(isDark() ? 'sun' : 'moon')}</button>
     <div class="user-menu"><button class="user-b" data-act="user-menu">${avatar(USER)}<div><b>${esc(loc(USER))}</b><small>${t('role_' + USER.role)}</small></div></button>
       <div class="dropdown" hidden><button data-act="chpass">${icon('key')}<span>${t('changePassword')}</span></button><button data-act="logout" class="danger-t">${icon('logout')}<span>${t('logout')}</span></button></div></div>
   </header>`;
@@ -231,7 +231,7 @@ Object.assign(ACT, {
     if (mode === 'client') { cfg.host = $('#net-host').value.trim(); cfg.key = $('#net-key').value.trim(); if (!cfg.host || !cfg.key) { toast(t('netNeedHostKey'), 'err'); return; } }
     confirmBox(t('netRestartConfirm'), () => window.dalalaNet.set(cfg), { danger: false }); },
 });
-Object.assign(ACT, ACT_EXTRA, EXTRA_ACT, { 'wa-student': el => waStudentCompose(el.dataset.id) });
+Object.assign(ACT, ACT_EXTRA, EXTRA_ACT, { fullscreen: () => { if (window.dalalaWindow) window.dalalaWindow.toggleFullscreen(); }, 'wa-student': el => waStudentCompose(el.dataset.id) });
 const CHG = {
   'net-mode': () => netModeFields(),
   'crud-filter': el => { const st = crudState(el.dataset.key); st.f[el.dataset.f] = el.value; st.page = 1; render(); },

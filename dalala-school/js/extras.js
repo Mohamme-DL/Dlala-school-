@@ -407,7 +407,7 @@ async function printEmployeeCard(e) {
 }
 
 /* ================= translations ================= */
-Object.assign(I18N.ar, {
+Object.assign(I18N.ar, { fullscreen: 'ملء الشاشة',
   nav_employee: 'ملف الموظف', role_clerk: 'إداري', opt_clerk: 'إداري', nav_payroll: 'مرتبات المعلمين والموظفين', nav_salaryPays: 'سندات صرف المرتبات', nav_treasury: 'الحركة المالية (الصندوق)', nav_docs: 'الأوراق الشخصية', g_hr: 'الموارد البشرية',
   sub_payroll: 'كشوف المرتبات الشهرية ومتابعة المستحق والمصروف', sub_salaryPays: 'سندات الصرف المسلَّمة للمعلمين والموظفين', sub_treasury: 'كل سندات القبض من الطلبة وسندات الصرف في كشف واحد',
   ent_payroll: 'كشف راتب', ent_salaryPays: 'سند صرف', f_month: 'الشهر', f_base: 'الراتب الأساسي', f_allowances: 'العلاوات', f_bonus: 'مكافأة', f_deductions: 'الخصومات', f_voucherNo: 'رقم السند', f_payrollId: 'كشف الراتب', f_state: 'الحالة', f_photo: 'الصورة الشخصية', f_perms: 'الصلاحيات', f_photoId: 'الصورة الشخصية',
@@ -422,7 +422,7 @@ Object.assign(I18N.ar, {
   noPermission: 'ليست لديك صلاحية لهذا الإجراء', choosePhoto: 'اختيار صورة', removePhoto: 'حذف الصورة',
   permCustom: 'تخصيص صلاحيات هذا المستخدم', permHint: 'إن لم تُفعَّل، تُطبَّق الصلاحيات الافتراضية لنوع الحساب. المستخدمون والإعدادات للمدير فقط.', permPreset: 'استعادة صلاحيات نوع الحساب', permSection: 'القسم', permView: 'عرض', permEdit: 'إضافة وتعديل',
 });
-Object.assign(I18N.en, {
+Object.assign(I18N.en, { fullscreen: 'Full screen',
   nav_employee: 'Staff file', role_clerk: 'Administrative', opt_clerk: 'Administrative', nav_payroll: 'Staff payroll', nav_salaryPays: 'Salary vouchers', nav_treasury: 'Cash movement', nav_docs: 'Personal documents', g_hr: 'Human resources',
   sub_payroll: 'Monthly payroll sheets: due and paid', sub_salaryPays: 'Payment vouchers issued to staff', sub_treasury: 'All student receipts and salary vouchers in one statement',
   ent_payroll: 'Payroll sheet', ent_salaryPays: 'Salary voucher', f_month: 'Month', f_base: 'Basic salary', f_allowances: 'Allowances', f_bonus: 'Bonus', f_deductions: 'Deductions', f_voucherNo: 'Voucher #', f_payrollId: 'Payroll sheet', f_state: 'State', f_photo: 'Photo', f_perms: 'Permissions', f_photoId: 'Photo',

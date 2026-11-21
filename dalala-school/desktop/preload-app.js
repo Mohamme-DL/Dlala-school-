@@ -17,3 +17,4 @@ contextBridge.exposeInMainWorld('dalalaBackup', Object.freeze({
 contextBridge.exposeInMainWorld('dalalaScan', Object.freeze({ acquire: () => ipcRenderer.invoke('scan:acquire') }));
 // after a file is saved: the app can offer to open it
 contextBridge.exposeInMainWorld('dalalaFiles', Object.freeze({ onSaved: cb => ipcRenderer.on('file:saved', (_e, p) => cb(String(p))), openLast: () => ipcRenderer.invoke('file:openLast') }));
+contextBridge.exposeInMainWorld('dalalaWindow', Object.freeze({ toggleFullscreen: () => ipcRenderer.invoke('win:fullscreen') }));

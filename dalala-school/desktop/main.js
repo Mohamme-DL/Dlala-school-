@@ -49,6 +49,8 @@ ipcMain.handle('net:set', (_e, cfg) => {
 });
 const ICON = path.join(__dirname, 'web', 'assets', 'icon.png');
 
+function toggleFullscreen() { if (win && !win.isDestroyed()) win.setFullScreen(!win.isFullScreen()); }
+ipcMain.handle('win:fullscreen', e => { if (win && e.sender === win.webContents) toggleFullscreen(); });
 function harden(wc, allowNav) {
   wc.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url)) shell.openExternal(url); return { action: 'deny' }; });
   wc.on('will-navigate', (e, url) => { if (!allowNav(url)) { e.preventDefault(); if (/^https?:/.test(url)) shell.openExternal(url); } });
@@ -57,7 +59,8 @@ function harden(wc, allowNav) {
     if (input.type !== 'keyDown') return;
     const ctrl = input.control || input.meta; const k = (input.key || '').toLowerCase();
     if (k === 'f12' || (ctrl && input.shift && ['i', 'j', 'c'].includes(k))) { e.preventDefault(); return; }
-    if (k === 'f5') { wc.reload(); e.preventDefault(); }
+    if (k === 'f11') { toggleFullscreen(); e.preventDefault(); }
+    else if (k === 'f5') { wc.reload(); e.preventDefault(); }
     else if (ctrl && (k === '=' || k === '+')) { wc.setZoomLevel(wc.getZoomLevel() + 0.5); e.preventDefault(); }
     else if (ctrl && k === '-') { wc.setZoomLevel(wc.getZoomLevel() - 0.5); e.preventDefault(); }
     else if (ctrl && k === '0') { wc.setZoomLevel(0); e.preventDefault(); }
