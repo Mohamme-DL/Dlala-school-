@@ -462,7 +462,8 @@ function inputHtml(f, v, rec) {
     case 'number': return `<input class="input" type="number" step="any" min="0" ${name} value="${esc(v)}" ${req}>`;
     default: {
       const dl = f.datalist ? `<datalist id="dl-${f.k}">${f.datalist().map(o => `<option value="${esc(o)}">`).join('')}</datalist>` : '';
-      return `<input class="input" type="${f.type === 'password' ? 'text' : f.type}" ${name} value="${esc(v)}" ${req} ${dir} ${dl ? `list="dl-${f.k}"` : ''}>${dl}`;
+      if (f.type === 'password') return `<input class="input" type="password" ${name} value="" autocomplete="new-password" dir="ltr" ${rec && rec.id ? '' : 'required'}><small class="muted">${rec && rec.id ? t('passKeepHint') : ''}</small>`;
+      return `<input class="input" type="${f.type}" ${name} value="${esc(v)}" ${req} ${dir} ${dl ? `list="dl-${f.k}"` : ''}>${dl}`;
     }
   }
 }
@@ -485,12 +486,12 @@ function openForm(key, id, preset = {}) {
   const form = $('#mform', root);
   $('[data-cancel]', root).onclick = closeModal;
   if (cfg.onChange) form.addEventListener('change', e => cfg.onChange(form, e.target.name));
-  form.addEventListener('submit', e => {
+  form.addEventListener('submit', async e => {
     e.preventDefault();
     const out = {}; let err = null;
     for (const f of fields) {
       const el = form.elements[f.k];
-      let v = f.type === 'bool' ? el.checked : f.type === 'multiref' ? [...el.selectedOptions].map(o => o.value) : el.value.trim();
+      let v = f.type === 'bool' ? el.checked : f.type === 'multiref' ? [...el.selectedOptions].map(o => o.value) : f.type === 'password' ? el.value : el.value.trim();
       if (f.type === 'number' || f.num) v = v === '' ? '' : Number(v);
       if (f.req && (v === '' || v == null)) { err = `${t('errRequired')}: ${fieldLabel(f)}`; el.focus(); break; }
       if (f.unique && v !== '' && DB.all(key).some(r => r.id !== id && String(r[f.k]).toLowerCase() === String(v).toLowerCase())) { err = `${t('errUnique')}: ${fieldLabel(f)}`; el.focus(); break; }
@@ -498,6 +499,7 @@ function openForm(key, id, preset = {}) {
     }
     if (!err && cfg.validate) err = cfg.validate({ ...rec, ...out }, old);
     const box = $('.form-err', form);
+    if (!err && cfg.prepare) { try { await cfg.prepare(out, old); } catch (x) { console.error(x); err = t('errorPage'); } }
     if (err) { box.hidden = false; box.textContent = err; return; }
     let saved;
     if (old) saved = DB.update(key, id, out); else saved = DB.insert(key, { ...preset, ...out });

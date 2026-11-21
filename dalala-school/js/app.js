@@ -89,16 +89,9 @@ function restoreSession() {
   let id = null; try { id = localStorage.getItem('dalala_session'); } catch (e) { /* ignore */ }
   USER = id ? DB.all('users').find(u => u.id === id && u.active !== false && u.role !== 'parent') || null : null;
 }
-function login(username, password) {
-  const u = DB.all('users').find(x => x.username.toLowerCase() === username.trim().toLowerCase() && x.password === password && x.active !== false && x.role !== 'parent');
-  if (!u) return false;
-  USER = u; try { localStorage.setItem('dalala_session', u.id); } catch (e) { /* ignore */ }
-  location.hash = '#/' + homePage(); render(); return true;
-}
 function logout() { USER = null; try { localStorage.removeItem('dalala_session'); } catch (e) { /* ignore */ } location.hash = ''; render(); }
 
 function renderLogin() {
-  const demos = [['admin', 'admin123', 'role_admin', 'shield'], ['teacher', 'teacher123', 'role_teacher', 'pencil'], ['clerk', 'clerk123', 'role_clerk', 'file'], ['accountant', 'acc123', 'role_accountant', 'wallet']];
   $('#app').innerHTML = `<div class="login">
     <div class="login-art"><div class="art-inner">${LOGO}<h1>${t('appName')}</h1><p>${t('tagline')}</p>
       <ul>${['feat1', 'feat2', 'feat3', 'feat4'].map(f => `<li>${icon('check')}<span>${t(f)}</span></li>`).join('')}</ul></div>
@@ -111,11 +104,11 @@ function renderLogin() {
         <label class="field"><span>${t('password')}</span><input class="input" name="p" type="password" autocomplete="current-password" dir="ltr" required></label>
         <div class="form-err" hidden>${t('loginError')}</div>
         <button class="btn primary block" type="submit">${t('signIn')}</button>
-        <div class="demo"><span>${t('demoAccounts')}</span><div>${demos.map(([u, p, r, ic]) => `<button type="button" class="demo-b" data-act="demo-login" data-u="${u}" data-p="${p}">${icon(ic)}<span>${t(r)}</span></button>`).join('')}</div></div>
       </form><p class="foot">© ${new Date().getFullYear()} ${t('appName')}</p></div></div>`;
-  $('#login-form').addEventListener('submit', e => {
-    e.preventDefault();
-    if (!login(e.target.u.value, e.target.p.value)) $('.form-err', e.target).hidden = false;
+  $('#login-form').addEventListener('submit', async e => {
+    e.preventDefault(); const f = e.target, btn = $('button[type=submit]', f); btn.disabled = true;
+    let ok = false; try { ok = await login(f.u.value, f.p.value); } catch (err) { console.error(err); }
+    if (!ok) { btn.disabled = false; $('.form-err', f).hidden = false; f.p.value = ''; f.p.focus(); }
   });
 }
 
@@ -158,17 +151,7 @@ const ACT = {
   menu: () => document.body.classList.toggle('nav-open'),
   'user-menu': el => { const d = el.parentElement.querySelector('.dropdown'); d.hidden = !d.hidden; },
   logout: () => logout(),
-  'demo-login': el => login(el.dataset.u, el.dataset.p),
-  chpass: () => {
-    const root = modal({ title: t('changePassword'), size: 'sm',
-      body: `<form id="pform" class="form-grid one"><label class="field"><span>${t('currentPassword')}</span><input class="input" type="password" name="o" required dir="ltr"></label>
-        <label class="field"><span>${t('newPassword')}</span><input class="input" type="password" name="n" minlength="6" required dir="ltr"></label><div class="form-err" hidden></div></form>`,
-      footer: `<button class="btn primary" type="submit" form="pform">${t('save')}</button>` });
-    $('#pform', root).addEventListener('submit', e => { e.preventDefault(); const f = e.target;
-      if (f.o.value !== USER.password) { const b = $('.form-err', f); b.hidden = false; b.textContent = t('wrongPassword'); return; }
-      if (f.n.value.length < 6) { const b = $('.form-err', f); b.hidden = false; b.textContent = t('passwordShort'); return; }
-      DB.update('users', USER.id, { password: f.n.value }); closeModal(); toast(t('saved')); });
-  },
+  chpass: () => changePasswordForm(),
   'quick-add': el => openForm(el.dataset.key),
   'crud-add': el => openForm(el.dataset.key),
   'crud-edit': el => openForm(el.dataset.key, el.dataset.id),
