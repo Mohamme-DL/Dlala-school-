@@ -82,7 +82,7 @@ function termName(n) { return t('opt_term' + n); }
 function pct(a, b) { return b ? Math.round(a * 1000 / b) / 10 : 0; }
 function norm(s) { return String(s ?? '').toLowerCase().replace(/[ً-ْـ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي'); }
 function hue(str) { let h = 0; for (const c of String(str)) h = (h * 31 + c.charCodeAt(0)) % 360; return h; }
-function avatar(r, size = '') { const n = loc(r); return `<span class="av ${size}" style="--h:${hue(r.id || n)}">${esc((n || '?').trim().charAt(0))}</span>`; }
+function avatar(r, size = '') { const n = loc(r); if (r.photo) return `<span class="av ${size} has-img"><img src="${esc(r.photo)}" alt=""></span>`; return `<span class="av ${size}" style="--h:${hue(r.id || n)}">${esc((n || '?').trim().charAt(0))}</span>`; }
 function badge(v, label) { return `<span class="badge b-${esc(v)}">${esc(label ?? t('opt_' + v))}</span>`; }
 function gradeLetter(p) {
   if (p == null || isNaN(p)) return { letter: '—', key: 'na' };
@@ -133,7 +133,7 @@ function libyanNidError(nid, gender, dob) {
 function isLyPhone(v) { return /^(\+?218|00218|0)?(9[1-6]\d{7}|[2-8]\d{7,8})$/.test(String(v || '').replace(/[\s-]/g, '')); }
 const LY_MUNICIPALITIES = ['طرابلس', 'بنغازي', 'مصراتة', 'الزاوية', 'زليتن', 'الخمس', 'صبراتة', 'صرمان', 'غريان', 'ترهونة', 'سرت', 'البيضاء', 'درنة', 'طبرق', 'أجدابيا', 'المرج', 'سبها', 'أوباري', 'مرزق', 'غات', 'الكفرة', 'نالوت', 'يفرن', 'زوارة', 'بني وليد', 'جنزور', 'تاجوراء', 'سوق الجمعة', 'أبوسليم', 'حي الأندلس', 'العجيلات', 'الجميل', 'القره بوللي', 'مسلاتة', 'هون', 'ودان', 'براك الشاطئ', 'الأبيار', 'شحات', 'الجفرة', 'جالو', 'قصر الأخيار', 'العزيزية', 'ككلة', 'الزنتان', 'الرجبان', 'جادو', 'ورشفانة'];
 function sortedClasses() { return DB.all('classes').slice().sort((a, b) => a.grade - b.grade || String(a.section).localeCompare(b.section)); }
-function invPaid(inv) { return sum(DB.all('payments').filter(p => p.invoiceId === inv.id), p => p.amount); }
+function invPaid(inv) { return sum(DB.all('payments').filter(p => p.invoiceId === inv.id && !p.voided), p => p.amount); }
 function invNet(inv) { return Math.max(0, (+inv.amount || 0) - (+inv.discount || 0)); }
 function invBalance(inv) { return Math.max(0, Math.round((invNet(inv) - invPaid(inv)) * 100) / 100); }
 function invStatus(inv) {

@@ -8,8 +8,9 @@ const studentGrade = r => DB.get('classes', DB.get('students', r.studentId || r.
 
 const ENT = {
   students: {
-    icon: 'users', edit: ['admin'],
+    icon: 'users', edit: ['admin', 'clerk'],
     fields: [
+      { k: 'photo', type: 'photo', full: 1 },
       { k: 'code', type: 'text', list: 1, auto: 'STD', unique: 1 },
       { k: 'name', type: 'text', req: 1, list: 1, show: r => loc(r), fmt: r => `<a class="who" href="#/student/${r.id}">${avatar(r)}<span>${esc(loc(r))}</span></a>` },
       { k: 'nameEn', type: 'text', dir: 'ltr' },
@@ -44,7 +45,7 @@ const ENT = {
   },
 
   admissions: {
-    icon: 'userPlus', edit: ['admin'],
+    icon: 'userPlus', edit: ['admin', 'clerk'],
     fields: [
       { k: 'code', type: 'text', list: 1, auto: 'ADM', unique: 1 },
       { k: 'name', type: 'text', req: 1, list: 1, show: r => loc(r) },
@@ -99,8 +100,9 @@ const ENT = {
   employees: {
     icon: 'briefcase', edit: ['admin'],
     fields: [
+      { k: 'photo', type: 'photo', full: 1 },
       { k: 'code', type: 'text', list: 1, auto: 'EMP', unique: 1 },
-      { k: 'name', type: 'text', req: 1, list: 1, show: r => loc(r), fmt: r => `<span class="who">${avatar(r)}<span>${esc(loc(r))}</span></span>` },
+      { k: 'name', type: 'text', req: 1, list: 1, show: r => loc(r), fmt: r => `<a class="who" href="#/employee/${r.id}">${avatar(r)}<span>${esc(loc(r))}</span></a>` },
       { k: 'nameEn', type: 'text', dir: 'ltr' },
       { k: 'gender', type: 'select', opts: ['male', 'female'], req: 1 },
       { k: 'nationalId', type: 'text', dir: 'ltr' },
@@ -119,7 +121,7 @@ const ENT = {
   },
 
   exams: {
-    icon: 'file', edit: ['admin'], order: (a, b) => (a.date || '').localeCompare(b.date || ''),
+    icon: 'file', edit: ['admin', 'teacher'], order: (a, b) => (a.date || '').localeCompare(b.date || ''),
     fields: [
       { k: 'title', type: 'text', req: 1, list: 1, show: r => loc(r, 'title') },
       { k: 'titleEn', type: 'text', dir: 'ltr' },
@@ -189,10 +191,10 @@ const ENT = {
     ],
     filters: [{ k: 'status', opts: ['paid', 'partial', 'unpaid', 'overdue'], test: (r, v) => invStatus(r) === v }, { k: 'feeTypeId' }, stageFilter(studentGrade)],
     actions: [
-      { icon: 'wallet', label: 'pay', show: r => invBalance(r) > 0, roles: ['admin', 'accountant'], fn: r => openForm('payments', null, { invoiceId: r.id, amount: invBalance(r) }) },
+      { icon: 'wallet', label: 'pay', show: r => invBalance(r) > 0, perm: 'payments', fn: r => openForm('payments', null, { invoiceId: r.id, amount: invBalance(r) }) },
       { icon: 'printer', label: 'print', fn: r => printInvoice(r) },
     ],
-    tools: [{ icon: 'sparkle', label: 'genInvoices', roles: ['admin', 'accountant'], fn: () => openGenerateInvoices() }],
+    tools: [{ icon: 'sparkle', label: 'genInvoices', perm: 'invoices', fn: () => openGenerateInvoices() }],
     summary: rows => [
       { label: t('f_net'), value: moneyText(sum(rows, invNet)) },
       { label: t('f_paid'), value: moneyText(sum(rows, invPaid)), cls: 'b-paid' },
@@ -309,10 +311,10 @@ const ENT = {
       { k: 'password', type: 'password', req: 1, dir: 'ltr' },
       { k: 'name', type: 'text', req: 1, list: 1, show: r => loc(r) },
       { k: 'nameEn', type: 'text', dir: 'ltr' },
-      { k: 'role', type: 'select', opts: ['admin', 'teacher', 'accountant', 'librarian', 'parent'], req: 1, list: 1, badge: 1 },
+      { k: 'role', type: 'select', opts: ['admin', 'clerk', 'teacher', 'accountant', 'librarian'], req: 1, list: 1, badge: 1, def: 'teacher' },
       { k: 'employeeId', type: 'ref', ref: 'employees', list: 1 },
-      { k: 'studentIds', type: 'multiref', ref: 'students', full: 1 },
       { k: 'active', type: 'bool', def: true, list: 1 },
+      { k: 'perms', type: 'perms', full: 1 },
     ],
     filters: [{ k: 'role' }],
     canDelete: r => r.id !== USER.id,
@@ -383,7 +385,7 @@ function crudRows(key) {
     rows = rows.filter(r => (flt && flt.test ? flt.test(r, v) : String(r[fk]) === String(v)));
   }
   if (st.q) {
-    const q = norm(st.q).trim(); const fs = cfg.fields.filter(f => f.type !== 'password');
+    const q = norm(st.q).trim(); const fs = cfg.fields.filter(f => !['password', 'photo', 'perms'].includes(f.type));
     rows = rows.filter(r => fs.some(f => norm(cellText(f, r)).includes(q) || (f.k.endsWith('En') && norm(r[f.k]).includes(q))));
   }
   if (st.sort) { const f = cfg.fields.find(x => x.k === st.sort); rows.sort((a, b) => { const x = sortVal(f, a), y = sortVal(f, b); return (x > y ? 1 : x < y ? -1 : 0) * st.dir; }); }
@@ -392,14 +394,14 @@ function crudRows(key) {
 }
 
 function renderCrud(key, { title, embedded } = {}) {
-  const cfg = ENT[key], st = crudState(key), editable = can(cfg.edit);
+  const cfg = ENT[key], st = crudState(key), editable = canEdit(key);
   const filters = (cfg.filters || []).map(fl => {
     const f = cfg.fields.find(x => x.k === fl.k) || {};
     const opts = fl.opts ? fl.opts.map(v => ({ v, l: t('opt_' + v) })) : f.type === 'ref' ? refOptions(f) : fieldOpts(f);
     return `<select class="input sm" data-chg="crud-filter" data-key="${key}" data-f="${fl.k}">
       <option value="">${t('f_' + fl.k)}: ${t('all')}</option>${opts.map(o => `<option value="${esc(o.v)}" ${String(st.f[fl.k]) === String(o.v) ? 'selected' : ''}>${esc(o.l)}</option>`).join('')}</select>`;
   }).join('');
-  const tools = (cfg.tools || []).filter(tl => can(tl.roles)).map((tl, i) => `<button class="btn ghost" data-act="crud-tool" data-key="${key}" data-i="${i}">${icon(tl.icon)}<span>${t(tl.label)}</span></button>`).join('');
+  const tools = (cfg.tools || []).filter(tl => (tl.perm ? canEdit(tl.perm) : can(tl.roles))).map((tl, i) => `<button class="btn ghost" data-act="crud-tool" data-key="${key}" data-i="${i}">${icon(tl.icon)}<span>${t(tl.label)}</span></button>`).join('');
   return `${embedded ? '' : pageHead(title || t('nav_' + key), t('sub_' + key), `
       <button class="btn ghost" data-act="crud-export" data-key="${key}">${icon('download')}<span>${t('export')}</span></button>${tools}
       ${editable ? `<button class="btn primary" data-act="crud-add" data-key="${key}">${icon('plus')}<span>${t('add')}</span></button>` : ''}`)}
@@ -415,13 +417,13 @@ function renderCrud(key, { title, embedded } = {}) {
 
 const PAGE_SIZE = 15;
 function crudTable(key) {
-  const cfg = ENT[key], st = crudState(key), rows = crudRows(key), editable = can(cfg.edit);
+  const cfg = ENT[key], st = crudState(key), rows = crudRows(key), editable = canEdit(key);
   const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE)); st.page = Math.min(st.page, pages);
   const slice = rows.slice((st.page - 1) * PAGE_SIZE, st.page * PAGE_SIZE);
   const cols = cfg.fields.filter(f => f.list);
   const summary = cfg.summary ? `<div class="summary">${cfg.summary(rows).map(s => `<div class="sum-item ${s.cls || ''}"><span>${esc(s.label)}</span><b>${esc(s.value)}</b></div>`).join('')}</div>` : '';
   const actions = r => {
-    const custom = (cfg.actions || []).map((a, i) => (a.show && !a.show(r)) || (a.roles && !can(a.roles)) ? '' :
+    const custom = (cfg.actions || []).map((a, i) => (a.show && !a.show(r)) || (a.perm ? !canEdit(a.perm) : a.roles && !can(a.roles)) ? '' :
       a.href ? `<a class="icon-btn" href="${a.href(r)}" title="${t(a.label)}">${icon(a.icon)}</a>`
         : `<button class="icon-btn" data-act="crud-action" data-key="${key}" data-i="${i}" data-id="${r.id}" title="${t(a.label)}">${icon(a.icon)}</button>`).join('');
     const ed = editable ? `<button class="icon-btn" data-act="crud-edit" data-key="${key}" data-id="${r.id}" title="${t('edit')}">${icon('edit')}</button>
@@ -442,7 +444,7 @@ function crudTable(key) {
 function refreshCrud(key) { const el = $('#crud-' + key); if (el) el.innerHTML = crudTable(key); else render(); }
 
 function exportCrud(key) {
-  const cfg = ENT[key]; const cols = cfg.fields.filter(f => f.type !== 'password');
+  const cfg = ENT[key]; const cols = cfg.fields.filter(f => !['password', 'photo', 'perms'].includes(f.type));
   exportCSV(key, cols.map(fieldLabel), crudRows(key).map(r => cols.map(f => cellText(f, r))), t('nav_' + key));
 }
 
@@ -454,6 +456,8 @@ function inputHtml(f, v, rec) {
     case 'select': return `<select class="input" ${name} ${req}><option value="">—</option>${fieldOpts(f).map(o => `<option value="${esc(o.v)}" ${String(v) === String(o.v) ? 'selected' : ''}>${esc(o.l)}</option>`).join('')}</select>`;
     case 'ref': return `<select class="input" ${name} ${req}><option value="">—</option>${refOptions(f, v).map(o => `<option value="${esc(o.v)}" ${v === o.v ? 'selected' : ''}>${esc(o.l)}</option>`).join('')}</select>`;
     case 'multiref': return `<select class="input" ${name} multiple size="6">${refOptions(f, v || []).map(o => `<option value="${esc(o.v)}" ${(v || []).includes(o.v) ? 'selected' : ''}>${esc(o.l)}</option>`).join('')}</select><small class="hint">${t('multiHint')}</small>`;
+    case 'photo': return photoFieldHTML(v);
+    case 'perms': return permsEditorHTML(v, rec && rec.role);
     case 'bool': return `<label class="switch"><input type="checkbox" ${name} ${v ? 'checked' : ''}><span></span></label>`;
     case 'number': return `<input class="input" type="number" step="any" min="0" ${name} value="${esc(v)}" ${req}>`;
     default: {
@@ -563,7 +567,7 @@ function annCard(r) {
 }
 
 function printInvoice(inv) {
-  const s = DB.get('students', inv.studentId), pays = DB.all('payments').filter(p => p.invoiceId === inv.id);
+  const s = DB.get('students', inv.studentId), pays = DB.all('payments').filter(p => p.invoiceId === inv.id && !p.voided);
   printHTML(`${printHeader(t('invoice'))}<div class="pbox"><div class="kv"><span>${t('f_number')}</span><b>${esc(inv.number)}</b></div><div class="kv"><span>${t('f_studentId')}</span><b>${esc(loc(s))} (${esc(s?.code)})</b></div>
     <div class="kv"><span>${t('f_classId')}</span><b>${esc(refLabel('classes', s?.classId))}</b></div><div class="kv"><span>${t('f_dueDate')}</span><b>${fmtDate(inv.dueDate)}</b></div></div>
     <table class="ptable"><thead><tr><th>${t('f_feeTypeId')}</th><th>${t('f_amount')}</th><th>${t('f_discount')}</th><th>${t('f_net')}</th></tr></thead>

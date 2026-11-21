@@ -3,7 +3,7 @@
 
 const DB_KEY = 'dalala_school_db_v2';
 const COLS = ['students', 'employees', 'classes', 'subjects', 'exams', 'homework', 'behavior', 'admissions',
-  'feeTypes', 'invoices', 'payments', 'books', 'loans', 'buses', 'announcements', 'events', 'users'];
+  'feeTypes', 'invoices', 'payments', 'books', 'loans', 'buses', 'announcements', 'events', 'users', 'payroll', 'salaryPays', 'docs'];
 
 const DB = {
   d: null,
@@ -264,7 +264,7 @@ function seedData() {
     { id: id(), username: 'admin', password: 'admin123', name: 'مدير النظام', nameEn: 'System Admin', role: 'admin', active: true },
     { id: id(), username: 'teacher', password: 'teacher123', name: demoTeacher.name, nameEn: demoTeacher.nameEn, role: 'teacher', employeeId: demoTeacher.id, active: true },
     { id: id(), username: 'accountant', password: 'acc123', name: employees[2].name, nameEn: employees[2].nameEn, role: 'accountant', employeeId: employees[2].id, active: true },
-    { id: id(), username: 'parent', password: 'parent123', name: sib[0].guardianName, nameEn: sib[0].guardianNameEn, role: 'parent', studentIds: [sib[0].id, sib[1].id], active: true },
+    { id: id(), username: 'clerk', password: 'clerk123', name: 'موظف الشؤون الإدارية', nameEn: 'Administrative clerk', role: 'clerk', active: true },
   ];
 
   return { version: 1, settings, subjects, classes, employees, buses, students, tt, att, exams, marks, feeTypes, invoices, payments,

@@ -2,35 +2,39 @@
 'use strict';
 
 let USER = null;
-const ALL = ['admin', 'teacher', 'accountant', 'librarian', 'parent'];
-const STAFF = ['admin', 'teacher', 'accountant', 'librarian'];
+const STAFF = ['admin', 'clerk', 'teacher', 'accountant', 'librarian'];
+const ALL = STAFF;
 
 const MENU = [
   { g: 'g_main', items: [
     { id: 'dashboard', icon: 'home', roles: STAFF },
-    { id: 'portal', icon: 'heart', roles: ['parent'] },
   ] },
   { g: 'g_students', items: [
-    { id: 'students', icon: 'users', roles: ['admin', 'teacher', 'accountant'] },
-    { id: 'admissions', icon: 'userPlus', roles: ['admin'] },
-    { id: 'attendance', icon: 'check', roles: ['admin', 'teacher'] },
-    { id: 'behavior', icon: 'star', roles: ['admin', 'teacher'] },
+    { id: 'students', icon: 'users', roles: ['admin', 'clerk', 'teacher', 'accountant'] },
+    { id: 'admissions', icon: 'userPlus', roles: ['admin', 'clerk'] },
+    { id: 'attendance', icon: 'check', roles: ['admin', 'clerk', 'teacher'] },
+    { id: 'behavior', icon: 'star', roles: ['admin', 'clerk', 'teacher'] },
   ] },
   { g: 'g_academic', items: [
-    { id: 'classes', icon: 'layers', roles: ['admin', 'teacher'] },
-    { id: 'subjects', icon: 'book', roles: ['admin', 'teacher'] },
-    { id: 'timetable', icon: 'grid', roles: ['admin', 'teacher'] },
+    { id: 'classes', icon: 'layers', roles: ['admin', 'clerk', 'teacher'] },
+    { id: 'subjects', icon: 'book', roles: ['admin', 'clerk', 'teacher'] },
+    { id: 'timetable', icon: 'grid', roles: ['admin', 'clerk', 'teacher'] },
     { id: 'exams', icon: 'file', roles: ['admin', 'teacher'] },
     { id: 'marks', icon: 'pencil', roles: ['admin', 'teacher'] },
-    { id: 'reportcards', icon: 'award', roles: ['admin', 'teacher'] },
-    { id: 'certificates', icon: 'file', roles: ['admin'] },
+    { id: 'reportcards', icon: 'award', roles: ['admin', 'clerk', 'teacher'] },
+    { id: 'certificates', icon: 'file', roles: ['admin', 'clerk'] },
     { id: 'homework', icon: 'clipboard', roles: ['admin', 'teacher'] },
   ] },
-  { g: 'g_staff', items: [{ id: 'employees', icon: 'briefcase', roles: ['admin'] }] },
+  { g: 'g_staff', items: [
+    { id: 'employees', icon: 'briefcase', roles: ['admin'] },
+    { id: 'payroll', icon: 'wallet', roles: ['admin', 'accountant'] },
+    { id: 'salaryPays', icon: 'receipt', roles: ['admin', 'accountant'] },
+  ] },
   { g: 'g_finance', items: [
     { id: 'invoices', icon: 'receipt', roles: ['admin', 'accountant'] },
     { id: 'payments', icon: 'wallet', roles: ['admin', 'accountant'] },
     { id: 'feeTypes', icon: 'tag', roles: ['admin', 'accountant'] },
+    { id: 'treasury', icon: 'chart', roles: ['admin', 'accountant'] },
   ] },
   { g: 'g_services', items: [
     { id: 'books', icon: 'bookOpen', roles: ['admin', 'librarian'] },
@@ -49,13 +53,13 @@ const MENU = [
   ] },
 ];
 const PAGES = {
-  dashboard: renderDashboard, portal: renderPortal, attendance: renderAttendance, marks: renderMarks, reportcards: renderReportCards,
+  dashboard: renderDashboard, employee: renderEmployee, treasury: renderTreasury, attendance: renderAttendance, marks: renderMarks, reportcards: renderReportCards,
   timetable: renderTimetable, certificates: renderCertificates, messages: renderMessages, calendar: renderCalendar, reports: renderReports, settings: renderSettings, student: renderStudent,
-  announcements: () => (can(ENT.announcements.edit) ? renderCrud('announcements') : pageHead(t('nav_announcements'), t('sub_announcements')) + `<div class="cards-grid">${visibleAnnouncements().map(annCard).join('') || emptyState(t('noData'))}</div>`),
+  announcements: () => (canEdit('announcements') ? renderCrud('announcements') : pageHead(t('nav_announcements'), t('sub_announcements')) + `<div class="cards-grid">${visibleAnnouncements().map(annCard).join('') || emptyState(t('noData'))}</div>`),
 };
-const PAGE_ROLES = { student: ['admin', 'teacher', 'accountant'] };
+const PAGE_ROLES = { student: ['admin', 'clerk', 'teacher', 'accountant'], employee: ['admin'] };
 function pageRoles(id) { if (PAGE_ROLES[id]) return PAGE_ROLES[id]; for (const g of MENU) for (const i of g.items) if (i.id === id) return i.roles; return null; }
-const homePage = () => (USER.role === 'parent' ? 'portal' : 'dashboard');
+const homePage = () => firstAllowedPage() || 'dashboard';
 
 function parseHash() {
   const h = location.hash.replace(/^#\/?/, ''); const [path, qs] = h.split('?'); const parts = path.split('/').filter(Boolean);
@@ -83,10 +87,10 @@ function setLang(l) { LANG = l; try { localStorage.setItem('dalala_lang', l); } 
 /* ---------- auth ---------- */
 function restoreSession() {
   let id = null; try { id = localStorage.getItem('dalala_session'); } catch (e) { /* ignore */ }
-  USER = id ? DB.all('users').find(u => u.id === id && u.active !== false) || null : null;
+  USER = id ? DB.all('users').find(u => u.id === id && u.active !== false && u.role !== 'parent') || null : null;
 }
 function login(username, password) {
-  const u = DB.all('users').find(x => x.username.toLowerCase() === username.trim().toLowerCase() && x.password === password && x.active !== false);
+  const u = DB.all('users').find(x => x.username.toLowerCase() === username.trim().toLowerCase() && x.password === password && x.active !== false && x.role !== 'parent');
   if (!u) return false;
   USER = u; try { localStorage.setItem('dalala_session', u.id); } catch (e) { /* ignore */ }
   location.hash = '#/' + homePage(); render(); return true;
@@ -94,7 +98,7 @@ function login(username, password) {
 function logout() { USER = null; try { localStorage.removeItem('dalala_session'); } catch (e) { /* ignore */ } location.hash = ''; render(); }
 
 function renderLogin() {
-  const demos = [['admin', 'admin123', 'role_admin', 'shield'], ['teacher', 'teacher123', 'role_teacher', 'pencil'], ['accountant', 'acc123', 'role_accountant', 'wallet'], ['parent', 'parent123', 'role_parent', 'heart']];
+  const demos = [['admin', 'admin123', 'role_admin', 'shield'], ['teacher', 'teacher123', 'role_teacher', 'pencil'], ['clerk', 'clerk123', 'role_clerk', 'file'], ['accountant', 'acc123', 'role_accountant', 'wallet']];
   $('#app').innerHTML = `<div class="login">
     <div class="login-art"><div class="art-inner">${LOGO}<h1>${t('appName')}</h1><p>${t('tagline')}</p>
       <ul>${['feat1', 'feat2', 'feat3', 'feat4'].map(f => `<li>${icon('check')}<span>${t(f)}</span></li>`).join('')}</ul></div>
@@ -118,7 +122,7 @@ function renderLogin() {
 /* ---------- layout ---------- */
 function sidebar(page) {
   return `<aside class="sidebar"><div class="brand">${LOGO}<div><b>${t('appName')}</b><small>${esc(loc(S(), 'schoolName'))}</small></div></div>
-    <nav>${MENU.map(g => { const items = g.items.filter(i => i.roles.includes(USER.role)); if (!items.length) return '';
+    <nav>${MENU.map(g => { const items = g.items.filter(i => canView(i.id)); if (!items.length) return '';
       return `<div class="nav-g"><span>${t(g.g)}</span>${items.map(i => `<a href="#/${i.id}" class="nav-i ${page === i.id || (page === 'student' && i.id === 'students') ? 'on' : ''}">${icon(i.icon)}<span>${t('nav_' + i.id)}</span></a>`).join('')}</div>`; }).join('')}</nav>
     <div class="side-foot">${t('f_year')}: <b>${esc(S().year)}</b></div></aside>`;
 }
@@ -137,8 +141,7 @@ function render() {
   applyPrefs();
   if (!USER) { renderLogin(); return; }
   let { page, params } = parseHash();
-  const roles = pageRoles(page);
-  if (!page || !roles || !roles.includes(USER.role)) { page = homePage(); if (location.hash !== '#/' + page) { history.replaceState(null, '', '#/' + page); } params = {}; }
+  if (!page || !pageRoles(page) || !canView(page)) { page = homePage(); if (location.hash !== '#/' + page) { history.replaceState(null, '', '#/' + page); } params = {}; }
   let content;
   try { content = PAGES[page] ? PAGES[page](params) : renderCrud(page); }
   catch (e) { console.error(e); content = emptyState(t('errorPage') + ': ' + e.message, 'alert'); }
@@ -183,6 +186,7 @@ const ACT = {
   },
   'att-all': () => { const cid = ATT.key.split('|')[1]; studentsOfClass(cid).forEach(s => { ATT.draft[s.id] = 'P'; }); render(); },
   'att-save': () => {
+    if (!canEdit('attendance')) return toast(t('noPermission'), 'err');
     const cid = ATT.key.split('|')[1]; const studs = studentsOfClass(cid);
     const missing = studs.filter(s => !ATT.draft[s.id]).length;
     const doSave = () => { DB.d.att[ATT.key] = { ...ATT.draft }; DB.save(); toast(t('attSavedMsg')); render(); };
@@ -194,6 +198,7 @@ const ACT = {
       studentsOfClass(cid).map(s => { const a = studentAttendance(s.id, cid, from); return [s.code, loc(s), a.P, a.A, a.L, a.E, a.rate ?? '']; }), `${t('nav_attendance')} — ${classLabel(DB.get('classes', cid))}`);
   },
   'marks-save': () => {
+    if (!canEdit('marks')) return toast(t('noPermission'), 'err');
     const f = $('#marks-form'); const key = `${f.dataset.exam}|${f.dataset.sub}`; const max = +f.dataset.max; const rec = {};
     for (const inp of $$('input.mark', f)) {
       if (inp.value === '') continue; const v = Number(inp.value);
@@ -230,7 +235,7 @@ const ACT = {
     if (!st.workDays.length) st.workDays = [0, 1, 2, 3, 4];
     DB.save(); toast(t('saved')); render();
   },
-  backup: () => downloadFile(`dalala-backup-${today()}.json`, JSON.stringify(DB.d, null, 1), 'application/json'),
+  backup: async () => { const files = await filesForBackup().catch(() => ({})); downloadFile(`dalala-backup-${today()}.json`, JSON.stringify(Object.keys(files).length ? { ...DB.d, __files: files } : DB.d), 'application/json'); },
   'reset-demo': () => confirmBox(t('resetConfirm'), () => { DB.reset(); restoreSession(); if (!USER) { logout(); return; } toast(t('done')); render(); }),
   wipe: () => confirmBox(t('wipeConfirm'), () => { DB.wipe(); restoreSession(); if (!USER) { logout(); return; } toast(t('done')); render(); }),
 };
@@ -242,7 +247,7 @@ Object.assign(ACT, {
     if (mode === 'client') { cfg.host = $('#net-host').value.trim(); cfg.key = $('#net-key').value.trim(); if (!cfg.host || !cfg.key) { toast(t('netNeedHostKey'), 'err'); return; } }
     confirmBox(t('netRestartConfirm'), () => window.dalalaNet.set(cfg), { danger: false }); },
 });
-Object.assign(ACT, ACT_EXTRA, { 'wa-student': el => waStudentCompose(el.dataset.id) });
+Object.assign(ACT, ACT_EXTRA, EXTRA_ACT, { 'wa-student': el => waStudentCompose(el.dataset.id) });
 const CHG = {
   'net-mode': () => netModeFields(),
   'crud-filter': el => { const st = crudState(el.dataset.key); st.f[el.dataset.f] = el.value; st.page = 1; render(); },
@@ -251,7 +256,7 @@ const CHG = {
     const file = el.files[0]; if (!file) return;
     const rd = new FileReader();
     rd.onload = () => { try { const d = JSON.parse(rd.result); if (!d.version || !Array.isArray(d.students)) throw new Error('bad');
-      confirmBox(t('restoreConfirm'), () => { DB.d = d; DB.save(); DB.load(); restoreSession(); if (!USER) { logout(); return; } toast(t('done')); render(); }); }
+      confirmBox(t('restoreConfirm'), async () => { const fl = d.__files; delete d.__files; if (fl) { try { await restoreFiles(fl); } catch (e) { toast(t('errFileMissing'), 'err'); } } DB.d = d; DB.save(); DB.load(); restoreSession(); if (!USER) { logout(); return; } toast(t('done')); render(); }); }
       catch (e) { toast(t('invalidFile'), 'err'); } };
     rd.readAsText(file);
   },

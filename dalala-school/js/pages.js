@@ -11,7 +11,7 @@ const classOpts = () => sortedClasses().map(c => ({ v: c.id, l: classLabel(c) })
 const kpi = k => `<a class="kpi ${k.c || ''}" ${k.href ? `href="${k.href}"` : ''}><div class="kpi-ic">${icon(k.ic)}</div><div class="kpi-body"><span>${k.label}</span><b>${k.val}</b>${k.sub ? `<small>${k.sub}</small>` : ''}</div></a>`;
 const card = (title, body, extra = '', cls = '') => `<section class="card ${cls}"><div class="card-head"><h3>${title}</h3>${extra}</div><div class="card-body">${body}</div></section>`;
 function visibleAnnouncements() {
-  const aud = { admin: null, teacher: ['all', 'staff'], accountant: ['all', 'staff'], librarian: ['all', 'staff'], parent: ['all', 'parents', 'students'] }[USER.role];
+  const aud = { admin: null, clerk: ['all', 'staff'], teacher: ['all', 'staff'], accountant: ['all', 'staff'], librarian: ['all', 'staff'] }[USER.role];
   return DB.all('announcements').filter(a => !aud || aud.includes(a.audience)).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 }
 function upcomingEvents(n = 5) {
@@ -52,13 +52,13 @@ function renderDashboard() {
   const stageCount = STAGES.map((s, i) => ({ label: t('opt_' + s), value: students.filter(x => stageOf(DB.get('classes', x.classId)?.grade) === s).length, color: ['#6366f1', '#06b6d4', '#f59e0b'][i] }));
   const anns = visibleAnnouncements().slice(0, 3);
   const quick = [
-    { ic: 'userPlus', l: t('addStudent'), act: 'quick-add', key: 'students', roles: ['admin'] },
-    { ic: 'check', l: t('takeAttendance'), href: '#/attendance', roles: ['admin', 'teacher'] },
-    { ic: 'pencil', l: t('enterMarks'), href: '#/marks', roles: ['admin', 'teacher'] },
-    { ic: 'wallet', l: t('recordPayment'), act: 'quick-add', key: 'payments', roles: ['admin', 'accountant'] },
-    { ic: 'megaphone', l: t('newAnnouncement'), act: 'quick-add', key: 'announcements', roles: ['admin'] },
-    { ic: 'chart', l: t('nav_reports'), href: '#/reports', roles: ['admin', 'accountant'] },
-  ].filter(q => can(q.roles));
+    { ic: 'userPlus', l: t('addStudent'), act: 'quick-add', key: 'students', ok: canEdit('students') },
+    { ic: 'check', l: t('takeAttendance'), href: '#/attendance', ok: canEdit('attendance') },
+    { ic: 'pencil', l: t('enterMarks'), href: '#/marks', ok: canEdit('marks') },
+    { ic: 'wallet', l: t('recordPayment'), act: 'quick-add', key: 'payments', ok: canEdit('payments') },
+    { ic: 'megaphone', l: t('newAnnouncement'), act: 'quick-add', key: 'announcements', ok: canEdit('announcements') },
+    { ic: 'chart', l: t('nav_reports'), href: '#/reports', ok: canView('reports') },
+  ].filter(q => q.ok);
 
   let mySchedule = '';
   if (USER.employeeId && DB.get('employees', USER.employeeId)?.role === 'teacher') {
@@ -345,6 +345,7 @@ function studentSections(s, { portal } = {}) {
       ${card(t('personalInfo'), `<div class="info-grid">${info.map(([l, v]) => `<div><span>${t(l)}</span><b>${esc(v || '—')}</b></div>`).join('')}</div>`)}
       ${card(t('homework'), hw.length ? `<ul class="list">${hw.map(h => `<li><span class="dot" style="background:${subjectColor(h.subjectId)}"></span><div><b>${esc(loc(h, 'title'))}</b><small>${esc(refLabel('subjects', h.subjectId))} · ${t('f_dueDate')}: ${fmtDate(h.dueDate)}</small></div>${h.dueDate >= today() ? badge('open') : badge('closed')}</li>`).join('')}</ul>` : emptyState(t('noData')))}
     </div>
+    ${portal ? '' : docsCard('students', s.id)}
     ${portal ? '' : card(t('docsTitle'), `<div class="head-actions"><button class="btn ghost sm" data-act="stu-doc" data-kind="enrol" data-sid="${s.id}">${icon('printer')}<span>${t('docEnrol')}</span></button><button class="btn ghost sm" data-act="stu-doc" data-kind="transfer" data-sid="${s.id}">${icon('printer')}<span>${t('docTransfer')}</span></button></div>`)}
     ${card(`${t('academic')} — ${termName(1)}`, resTable(r1), `<button class="btn ghost sm" data-act="rc-print" data-sid="${s.id}" data-term="1">${icon('printer')}<span>${t('reportCard')}</span></button>`)}
     ${ab.level ? `<div class="alert ${ab.level}">${icon('alert')}<div><b>${t('abs_' + ab.level)}</b><span>${t('absAlertText').replace('{n}', fmtNum(ab.absRate, 1)).replace('{w}', S().absenceWarn).replace('{l}', S().absenceLimit)}</span></div></div>` : ''}
@@ -368,7 +369,7 @@ function renderStudent(p) {
   const s = DB.get('students', p.id); if (!s) return emptyState(t('notFound'));
   return studentHeader(s, `<a class="btn ghost" href="#/students">${icon(LANG === 'ar' ? 'chevR' : 'chevL')}<span>${t('back')}</span></a>
     ${can(['admin', 'teacher']) ? `<button class="btn wa" data-act="wa-student" data-id="${s.id}">${icon('whatsapp')}<span>${t('waGuardian')}</span></button>` : ''}
-    ${can(ENT.students.edit) ? `<button class="btn primary" data-act="crud-edit" data-key="students" data-id="${s.id}">${icon('edit')}<span>${t('edit')}</span></button>` : ''}`) + studentSections(s);
+    ${canEdit('students') ? `<button class="btn primary" data-act="crud-edit" data-key="students" data-id="${s.id}">${icon('edit')}<span>${t('edit')}</span></button>` : ''}`) + studentSections(s);
 }
 function renderPortal(p) {
   const kids = (USER.studentIds || []).map(id => DB.get('students', id)).filter(Boolean);
