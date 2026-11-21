@@ -14,7 +14,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const NUMBERED = { number: true, code: true };
+const NUMBERED = { number: true, code: true, receiptNo: true, voucherNo: true }; // fields that must stay unique across computers
 const AUTO_CODE = /^([A-Za-z]+-)(\d+)$/;
 const LOG_MAX = 5000;
 const FILE_MAX = 40 * 1024 * 1024;

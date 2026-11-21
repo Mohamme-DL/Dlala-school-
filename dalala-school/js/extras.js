@@ -52,32 +52,44 @@ async function scaledBlob(file, max, q) {
   URL.revokeObjectURL(u);
   return new Promise((res, rej) => c.toBlob(b => { if (!b) return rej(new Error('image')); b.w = w; b.h = h; res(b); }, 'image/jpeg', q));
 }
-async function squarePhoto(file) {           // centred square crop, small enough to live in the database
+async function squarePhoto(file) {           // centred square crop, 280px JPEG (about 15 KB)
   const { im, u } = await loadImage(file);
   const s = Math.min(im.width, im.height), sx = (im.width - s) / 2, sy = (im.height - s) / 2;
   const c = document.createElement('canvas'); c.width = c.height = 280; const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 280, 280); x.drawImage(im, sx, sy, s, s, 0, 0, 280, 280);
-  URL.revokeObjectURL(u); return c.toDataURL('image/jpeg', 0.78);
+  URL.revokeObjectURL(u); return new Promise((res, rej) => c.toBlob(bl => (bl ? res(bl) : rej(new Error('image'))), 'image/jpeg', 0.78));
 }
 
-/* ---------- photo field ---------- */
+/* ---------- photos: small JPEGs kept in the file store (not in the database), loaded on demand ---------- */
+const PHOTO_URLS = new Map();
+async function photoURL(id) {
+  if (PHOTO_URLS.has(id)) return PHOTO_URLS.get(id);
+  const b = await FILES.get(id).catch(() => null); if (!b) return '';
+  const u = URL.createObjectURL(b); PHOTO_URLS.set(id, u); return u;
+}
+async function hydratePhotos() {
+  for (const img of document.querySelectorAll('img[data-pid]:not([src])')) { const u = await photoURL(img.dataset.pid); if (u) img.src = u; }
+}
+{ let tm = null; new MutationObserver(() => { clearTimeout(tm); tm = setTimeout(hydratePhotos, 30); }).observe(document.documentElement, { childList: true, subtree: true }); }
+const blobToDataURL = b => new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(b); });
 function photoFieldHTML(v) {
-  return `<div class="photo-field"><span class="av xl" data-photo-prev>${v ? `<img src="${esc(v)}" alt="">` : icon('users')}</span>
+  return `<div class="photo-field"><span class="av xl has-img" data-photo-prev>${v ? `<img data-pid="${esc(v)}" alt="">` : icon('users')}</span>
     <div><label class="btn ghost sm">${icon('plus')}<span>${t('choosePhoto')}</span><input type="file" accept="image/*" hidden data-photo-file></label>
     <button type="button" class="btn ghost sm" data-photo-clear ${v ? '' : 'hidden'}>${icon('trash')}<span>${t('removePhoto')}</span></button></div>
-    <input type="hidden" name="photo" value="${esc(v || '')}"></div>`;
+    <input type="hidden" name="photoId" value="${esc(v || '')}"></div>`;
 }
 document.addEventListener('change', async e => {
   const inp = e.target.closest && e.target.closest('[data-photo-file]'); if (!inp || !inp.files[0]) return;
   const box = inp.closest('.photo-field');
   try {
-    const url = await squarePhoto(inp.files[0]);
-    box.querySelector('input[name=photo]').value = url; box.querySelector('[data-photo-prev]').innerHTML = `<img src="${url}" alt="">`; box.querySelector('[data-photo-clear]').hidden = false;
+    const blob = await squarePhoto(inp.files[0]); const id = uid(); await FILES.put(id, blob);
+    const u = URL.createObjectURL(blob); PHOTO_URLS.set(id, u);
+    box.querySelector('input[name=photoId]').value = id; box.querySelector('[data-photo-prev]').innerHTML = `<img src="${u}" alt="">`; box.querySelector('[data-photo-clear]').hidden = false;
   } catch (err) { toast(t('errImage'), 'err'); }
   inp.value = '';
 });
 document.addEventListener('click', e => {
   const b = e.target.closest && e.target.closest('[data-photo-clear]'); if (!b) return;
-  const box = b.closest('.photo-field'); box.querySelector('input[name=photo]').value = ''; box.querySelector('[data-photo-prev]').innerHTML = icon('users'); b.hidden = true;
+  const box = b.closest('.photo-field'); box.querySelector('input[name=photoId]').value = ''; box.querySelector('[data-photo-prev]').innerHTML = icon('users'); b.hidden = true;
 });
 
 /* ================= scanned personal documents ================= */
@@ -216,7 +228,8 @@ const wordsLine = v => { const w = amountWords(v); return w ? `<div class="pword
 /* backup/restore carry the scans too, otherwise a restored copy would lose them */
 async function filesForBackup() {
   const out = {};
-  for (const d of DB.all('docs')) { const b = await FILES.get(d.id); if (b) out[d.id] = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(b); }); }
+  const ids = [...DB.all('docs').map(d => d.id), ...DB.all('students').concat(DB.all('employees')).map(r => r.photoId).filter(Boolean)];
+  for (const id of ids) { const b = await FILES.get(id); if (b) out[id] = await blobToDataURL(b); }
   return out;
 }
 async function restoreFiles(map) { for (const [id, url] of Object.entries(map || {})) { const b = await (await fetch(url)).blob(); await FILES.put(id, b); } }
@@ -335,6 +348,7 @@ function printPaySlip(r) {
     <div class="psign"><div>${t('accountantSign')}</div><div>${t('receiverSign')}</div><div>${t('stamp')}</div></div>`, { name: 'payslip', title: t('paySlip') });
 }
 function printVoucher(p) {
+  p = DB.get('salaryPays', p.id) || p;   // the number may have been corrected by the shared server
   const pr = DB.get('payroll', p.payrollId) || {}, e = DB.get('employees', pr.employeeId) || {};
   printHTML(`${printHeader(t('payVoucher'))}${p.voided ? `<div class="pamount" style="color:#b91c1c;border-color:#b91c1c">${t('voided')} — ${esc(p.voidReason || '')}</div>` : ''}
     <div class="pbox"><div class="kv"><span>${t('f_voucherNo')}</span><b>${esc(p.voucherNo)}</b></div><div class="kv"><span>${t('f_date')}</span><b>${fmtDate(p.date)}</b></div>
@@ -384,10 +398,11 @@ function renderEmployee(p) {
     ${canEdit('employees') ? `<button class="btn primary" data-act="crud-edit" data-key="employees" data-id="${e.id}">${icon('edit')}<span>${t('edit')}</span></button>` : ''}</div></div>
     <div class="grid-2">${card(t('personalInfo'), `<div class="kv-list">${info.filter(x => x[1]).map(([k, v]) => `<div class="kv"><span>${t(k)}</span><b>${esc(v)}</b></div>`).join('')}</div>`)}${docsCard('employees', e.id)}</div>${payCard}`;
 }
-function printEmployeeCard(e) {
+async function printEmployeeCard(e) {
   if (!e) return;
+  const pic = e.photoId ? await FILES.get(e.photoId).then(b => (b ? blobToDataURL(b) : ''), () => '') : '';
   const rows = [['f_code', e.code], ['f_role', e.role ? t('opt_' + e.role) : ''], ['f_subjectId', e.subjectId ? refLabel('subjects', e.subjectId) : ''], ['f_nationalId', e.nationalId], ['f_phone', e.phone], ['f_qualification', e.qualification ? t('opt_' + e.qualification) : ''], ['f_hireDate', e.hireDate ? fmtDate(e.hireDate) : '']].filter(x => x[1]);
-  printHTML(`${printHeader(t('empCard'))}${e.photo ? `<div style="text-align:center"><img src="${esc(e.photo)}" style="width:110px;height:110px;object-fit:cover;border-radius:8px"></div>` : ''}<div class="pbox"><div class="kv"><span>${t('f_name')}</span><b>${esc(loc(e))}</b></div>${rows.map(([k, v]) => `<div class="kv"><span>${t(k)}</span><b>${esc(v)}</b></div>`).join('')}</div>
+  printHTML(`${printHeader(t('empCard'))}${pic ? `<div style="text-align:center"><img src="${esc(pic)}" style="width:110px;height:110px;object-fit:cover;border-radius:8px"></div>` : ''}<div class="pbox"><div class="kv"><span>${t('f_name')}</span><b>${esc(loc(e))}</b></div>${rows.map(([k, v]) => `<div class="kv"><span>${t(k)}</span><b>${esc(v)}</b></div>`).join('')}</div>
     <div class="psign"><div>${t('principal')}</div><div>${t('stamp')}</div></div>`, { name: 'employee-' + (e.code || ''), title: t('empCard') });
 }
 
@@ -395,7 +410,7 @@ function printEmployeeCard(e) {
 Object.assign(I18N.ar, {
   nav_employee: 'ملف الموظف', role_clerk: 'إداري', opt_clerk: 'إداري', nav_payroll: 'مرتبات المعلمين والموظفين', nav_salaryPays: 'سندات صرف المرتبات', nav_treasury: 'الحركة المالية (الصندوق)', nav_docs: 'الأوراق الشخصية', g_hr: 'الموارد البشرية',
   sub_payroll: 'كشوف المرتبات الشهرية ومتابعة المستحق والمصروف', sub_salaryPays: 'سندات الصرف المسلَّمة للمعلمين والموظفين', sub_treasury: 'كل سندات القبض من الطلبة وسندات الصرف في كشف واحد',
-  ent_payroll: 'كشف راتب', ent_salaryPays: 'سند صرف', f_month: 'الشهر', f_base: 'الراتب الأساسي', f_allowances: 'العلاوات', f_bonus: 'مكافأة', f_deductions: 'الخصومات', f_voucherNo: 'رقم السند', f_payrollId: 'كشف الراتب', f_state: 'الحالة', f_photo: 'الصورة الشخصية', f_perms: 'الصلاحيات',
+  ent_payroll: 'كشف راتب', ent_salaryPays: 'سند صرف', f_month: 'الشهر', f_base: 'الراتب الأساسي', f_allowances: 'العلاوات', f_bonus: 'مكافأة', f_deductions: 'الخصومات', f_voucherNo: 'رقم السند', f_payrollId: 'كشف الراتب', f_state: 'الحالة', f_photo: 'الصورة الشخصية', f_perms: 'الصلاحيات', f_photoId: 'الصورة الشخصية',
   paySalary: 'صرف مرتب', genPayroll: 'إنشاء كشف الشهر', genPayrollHint: 'سيُنشأ كشف لكل موظف فعّال له راتب، ولن يتكرر كشف موجود.', paySlip: 'كشف راتب', payVoucher: 'سند صرف', printVoucher: 'طباعة السند', printVoucherQ: 'هل تريد طباعة سند الصرف؟', paidTo: 'صُرف إلى', salaryOf: 'راتب شهر', receiverSign: 'توقيع المستلم', totalPaidOut: 'إجمالي المصروف',
   voided: 'ملغى', valid: 'سارٍ', voidDo: 'إلغاء السند', voidTitle: 'إلغاء سند', voidWarn: 'لا تُحذف السندات المالية حفاظاً على التوثيق، وإنما تُلغى مع ذكر السبب ويبقى رقمها ظاهراً في السجل.', voidReason: 'سبب الإلغاء',
   errOverpaySalary: 'المبلغ يتجاوز المتبقي من صافي الراتب', errLocked: 'لا يعدّل السند بعد إصداره إلا مدير النظام. للتصحيح ألغِ السند وأنشئ بدلاً منه.', errVoidedLocked: 'السند ملغى ولا يمكن تعديله', errPayrollDup: 'يوجد كشف لهذا الموظف في نفس الشهر', errPayrollBelowPaid: 'صافي الراتب أقل من المصروف فعلاً',
@@ -410,7 +425,7 @@ Object.assign(I18N.ar, {
 Object.assign(I18N.en, {
   nav_employee: 'Staff file', role_clerk: 'Administrative', opt_clerk: 'Administrative', nav_payroll: 'Staff payroll', nav_salaryPays: 'Salary vouchers', nav_treasury: 'Cash movement', nav_docs: 'Personal documents', g_hr: 'Human resources',
   sub_payroll: 'Monthly payroll sheets: due and paid', sub_salaryPays: 'Payment vouchers issued to staff', sub_treasury: 'All student receipts and salary vouchers in one statement',
-  ent_payroll: 'Payroll sheet', ent_salaryPays: 'Salary voucher', f_month: 'Month', f_base: 'Basic salary', f_allowances: 'Allowances', f_bonus: 'Bonus', f_deductions: 'Deductions', f_voucherNo: 'Voucher #', f_payrollId: 'Payroll sheet', f_state: 'State', f_photo: 'Photo', f_perms: 'Permissions',
+  ent_payroll: 'Payroll sheet', ent_salaryPays: 'Salary voucher', f_month: 'Month', f_base: 'Basic salary', f_allowances: 'Allowances', f_bonus: 'Bonus', f_deductions: 'Deductions', f_voucherNo: 'Voucher #', f_payrollId: 'Payroll sheet', f_state: 'State', f_photo: 'Photo', f_perms: 'Permissions', f_photoId: 'Photo',
   paySalary: 'Pay salary', genPayroll: 'Create month payroll', genPayrollHint: 'Creates a sheet for every active employee with a salary; existing sheets are not duplicated.', paySlip: 'Pay slip', payVoucher: 'Payment voucher', printVoucher: 'Print voucher', printVoucherQ: 'Print the payment voucher?', paidTo: 'Paid to', salaryOf: 'Salary of', receiverSign: 'Receiver signature', totalPaidOut: 'Total paid out',
   voided: 'Void', valid: 'Valid', voidDo: 'Void', voidTitle: 'Void document', voidWarn: 'Financial documents are never deleted, to keep the record complete. They are voided with a reason and the number stays in the log.', voidReason: 'Reason',
   errOverpaySalary: 'Amount exceeds the remaining net salary', errLocked: 'Only the administrator can edit an issued voucher. To correct it, void it and create a new one.', errVoidedLocked: 'This voucher is void and cannot be edited', errPayrollDup: 'A sheet for this employee and month already exists', errPayrollBelowPaid: 'Net is lower than the amount already paid',

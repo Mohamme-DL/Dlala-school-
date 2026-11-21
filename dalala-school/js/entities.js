@@ -10,7 +10,7 @@ const ENT = {
   students: {
     icon: 'users', edit: ['admin', 'clerk'],
     fields: [
-      { k: 'photo', type: 'photo', full: 1 },
+      { k: 'photoId', type: 'photo', full: 1 },
       { k: 'code', type: 'text', list: 1, auto: 'STD', unique: 1 },
       { k: 'name', type: 'text', req: 1, list: 1, show: r => loc(r), fmt: r => `<a class="who" href="#/student/${r.id}">${avatar(r)}<span>${esc(loc(r))}</span></a>` },
       { k: 'nameEn', type: 'text', dir: 'ltr' },
@@ -100,7 +100,7 @@ const ENT = {
   employees: {
     icon: 'briefcase', edit: ['admin'],
     fields: [
-      { k: 'photo', type: 'photo', full: 1 },
+      { k: 'photoId', type: 'photo', full: 1 },
       { k: 'code', type: 'text', list: 1, auto: 'EMP', unique: 1 },
       { k: 'name', type: 'text', req: 1, list: 1, show: r => loc(r), fmt: r => `<a class="who" href="#/employee/${r.id}">${avatar(r)}<span>${esc(loc(r))}</span></a>` },
       { k: 'nameEn', type: 'text', dir: 'ltr' },
@@ -578,6 +578,7 @@ function printInvoice(inv) {
     <div class="psign"><div>${t('accountantSign')}</div><div>${t('stamp')}</div></div>`, { name: 'invoice', title: t('invoice') });
 }
 function printReceipt(p) {
+  p = DB.get('payments', p.id) || p;   // the number may have been corrected by the shared server
   const inv = DB.get('invoices', p.invoiceId), s = DB.get('students', inv?.studentId);
   printHTML(`${printHeader(t('receipt'))}<div class="pbox"><div class="kv"><span>${t('f_receiptNo')}</span><b>${esc(p.receiptNo)}</b></div><div class="kv"><span>${t('f_date')}</span><b>${fmtDate(p.date)}</b></div>
     <div class="kv"><span>${t('receivedFrom')}</span><b>${esc(s ? (LANG === 'en' && s.guardianNameEn ? s.guardianNameEn : s.guardianName) : '—')}</b></div><div class="kv"><span>${t('f_studentId')}</span><b>${esc(loc(s))} — ${esc(refLabel('classes', s?.classId))}</b></div>

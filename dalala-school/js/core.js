@@ -82,7 +82,7 @@ function termName(n) { return t('opt_term' + n); }
 function pct(a, b) { return b ? Math.round(a * 1000 / b) / 10 : 0; }
 function norm(s) { return String(s ?? '').toLowerCase().replace(/[ً-ْـ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي'); }
 function hue(str) { let h = 0; for (const c of String(str)) h = (h * 31 + c.charCodeAt(0)) % 360; return h; }
-function avatar(r, size = '') { const n = loc(r); if (r.photo) return `<span class="av ${size} has-img"><img src="${esc(r.photo)}" alt=""></span>`; return `<span class="av ${size}" style="--h:${hue(r.id || n)}">${esc((n || '?').trim().charAt(0))}</span>`; }
+function avatar(r, size = '') { const n = loc(r); if (r.photoId) return `<span class="av ${size} has-img"><img data-pid="${esc(r.photoId)}" alt=""></span>`; return `<span class="av ${size}" style="--h:${hue(r.id || n)}">${esc((n || '?').trim().charAt(0))}</span>`; }
 function badge(v, label) { return `<span class="badge b-${esc(v)}">${esc(label ?? t('opt_' + v))}</span>`; }
 function gradeLetter(p) {
   if (p == null || isNaN(p)) return { letter: '—', key: 'na' };
