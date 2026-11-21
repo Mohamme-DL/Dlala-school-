@@ -114,6 +114,19 @@ ipcMain.handle('print:run', (e, o = {}) => new Promise(resolve => {
   const ps = o.pageSize && typeof o.pageSize === 'object' && +o.pageSize.width > 10000 && +o.pageSize.height > 10000 ? { width: Math.min(+o.pageSize.width, 120000), height: Math.min(+o.pageSize.height, 5080000) } : (o.pageSize === 'A4' ? 'A4' : undefined);
   e.sender.print({ silent: !!o.silent, deviceName: String(o.deviceName || ''), printBackground: true, margins: { marginType: o.receipt ? 'none' : 'default' }, ...(ps ? { pageSize: ps } : {}) }, (ok, error) => resolve({ ok, error: ok ? '' : String(error || '') }));
 }));
+/* save the current page (print layout) as a PDF file: A4 etc., chosen by the user */
+ipcMain.handle('pdf:save', async (e, o = {}) => {
+  if (!fromMain(e)) return { ok: false, error: 'denied' };
+  try {
+    const mm = n => Math.min(Math.max(+n || 0, 50), 600) / 25.4, mg = Math.min(Math.max(+o.marginMM || 0, 0), 40) / 25.4;
+    const w = mm(o.widthMM), h = mm(o.heightMM); const name = String(o.name || 'document').replace(/[^A-Za-z0-9_.-]/g, '-').slice(0, 80) + '.pdf';
+    const r = await dialog.showSaveDialog(win, { title: 'حفظ PDF — Save PDF', defaultPath: path.join(app.getPath('documents'), name), filters: [{ name: 'PDF', extensions: ['pdf'] }] });
+    if (r.canceled || !r.filePath) return { ok: false, canceled: true };
+    const buf = await e.sender.printToPDF({ printBackground: true, preferCSSPageSize: false, landscape: false, pageSize: o.landscape ? { width: h, height: w } : { width: w, height: h }, margins: { top: mg, bottom: mg, left: mg, right: mg } });
+    fs.writeFileSync(r.filePath, buf); lastSaved = r.filePath; if (win) win.webContents.send('file:saved', lastSaved);
+    return { ok: true, path: r.filePath };
+  } catch (err) { return { ok: false, error: String(err && err.message || err) }; }
+});
 /* automatic backups: <userData>/backups/<name>.json, daily ones kept for 30 days */
 const BK_DIR = () => path.join(app.getPath('userData'), 'backups');
 const bkName = n => String(n || '').replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 80);

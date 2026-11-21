@@ -191,7 +191,7 @@ const ACT = {
   'att-export': el => {
     const cid = el.dataset.cid; const from = addDays(today(), -30);
     exportCSV('attendance-' + classLabel(DB.get('classes', cid)).replace(/\s/g, ''), [t('f_code'), t('f_name'), t('att_P'), t('att_A'), t('att_L'), t('att_E'), t('attendanceRate')],
-      studentsOfClass(cid).map(s => { const a = studentAttendance(s.id, cid, from); return [s.code, loc(s), a.P, a.A, a.L, a.E, a.rate ?? '']; }));
+      studentsOfClass(cid).map(s => { const a = studentAttendance(s.id, cid, from); return [s.code, loc(s), a.P, a.A, a.L, a.E, a.rate ?? '']; }), `${t('nav_attendance')} — ${classLabel(DB.get('classes', cid))}`);
   },
   'marks-save': () => {
     const f = $('#marks-form'); const key = `${f.dataset.exam}|${f.dataset.sub}`; const max = +f.dataset.max; const rec = {};
@@ -202,22 +202,23 @@ const ACT = {
     }
     DB.d.marks[key] = rec; DB.save(); toast(t('marksSaved')); render();
   },
-  'rc-print': el => printHTML(reportCardHTML(DB.get('students', el.dataset.sid), el.dataset.term)),
-  'rc-print-all': el => printHTML(studentsOfClass(el.dataset.cid).map(s => reportCardHTML(s, el.dataset.term)).join('<div class="pbreak"></div>')),
+  'stu-doc': el => { const s = DB.get('students', el.dataset.sid); printHTML(studentDocHTML(el.dataset.kind, s), { name: el.dataset.kind + '-' + (s.code || ''), title: t(el.dataset.kind === 'enrol' ? 'docEnrol' : 'docTransfer') }); },
+  'rc-print': el => printHTML(reportCardHTML(DB.get('students', el.dataset.sid), el.dataset.term), { name: 'report-card', title: t('reportCard') }),
+  'rc-print-all': el => printHTML(studentsOfClass(el.dataset.cid).map(s => reportCardHTML(s, el.dataset.term)).join('<div class="pbreak"></div>'), { name: 'report-cards', title: t('reportCard') }),
   'rc-export': el => {
     const cls = DB.get('classes', el.dataset.cid); const subs = subjectsForClass(cls);
     exportCSV('results-' + classLabel(cls).replace(/\s/g, ''), [t('rank'), t('f_code'), t('f_name'), ...subs.map(s => loc(s)), t('average'), t('gradeLbl')],
-      classResults(cls.id, el.dataset.term).map(x => [x.rank || '', x.s.code, loc(x.s), ...x.r.subjects.map(s => s.p ?? ''), x.r.avg ?? '', gradeLetter(x.r.avg).letter]));
+      classResults(cls.id, el.dataset.term).map(x => [x.rank || '', x.s.code, loc(x.s), ...x.r.subjects.map(s => s.p ?? ''), x.r.avg ?? '', gradeLetter(x.r.avg).letter]), `${t('nav_reportcards')} — ${classLabel(cls)} — ${termName(el.dataset.term)}`);
   },
   'tt-cell': el => openSlot(el.dataset.cid, +el.dataset.d, +el.dataset.p),
-  'tt-print': el => printHTML(`${printHeader(t('nav_timetable') + ' — ' + el.dataset.title)}${$('#tt-area').innerHTML}`),
+  'tt-print': el => printHTML(`${printHeader(t('nav_timetable') + ' — ' + el.dataset.title)}${$('#tt-area').innerHTML}`, { name: 'timetable', title: t('nav_timetable') + ' — ' + el.dataset.title, wide: true }),
   'cal-day': (el, e) => { if (e.target.closest('[data-act="cal-ev"]')) return; openForm('events', null, { date: el.dataset.date }); },
   'cal-ev': el => openForm('events', el.dataset.id),
   'rep-export': el => reportExport(el.dataset.what),
   'cert-seats': el => confirmBox(t('assignSeatsQ'), () => assignSeats(+el.dataset.g), { danger: false, okLabel: t('assignSeats') }),
-  'cert-export': el => exportCSV(`candidates-grade${el.dataset.g}`, certHeaders(), certRows(+el.dataset.g)),
+  'cert-export': el => exportCSV(`candidates-grade${el.dataset.g}`, certHeaders(), certRows(+el.dataset.g), `${t(+el.dataset.g === 9 ? 'cert9' : 'cert12')} — ${t('candidates')}`),
   'cert-print': el => printHTML(`${printHeader(t(+el.dataset.g === 9 ? 'cert9' : 'cert12') + ' — ' + t('candidates'))}<table class="ptable small"><thead><tr><th>#</th>${certHeaders().slice(0, 9).map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>
-    ${certRows(+el.dataset.g).map((r, i) => `<tr><td>${i + 1}</td>${r.slice(0, 9).map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table><div class="psign"><div>${t('f_supervision')}</div><div>${t('principal')}: ${esc(loc(S(), 'principal'))}</div><div>${t('stamp')}</div></div>`),
+    ${certRows(+el.dataset.g).map((r, i) => `<tr><td>${i + 1}</td>${r.slice(0, 9).map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table><div class="psign"><div>${t('f_supervision')}</div><div>${t('principal')}: ${esc(loc(S(), 'principal'))}</div><div>${t('stamp')}</div></div>`, { name: 'candidates', title: t(+el.dataset.g === 9 ? 'cert9' : 'cert12') + ' — ' + t('candidates'), wide: true }),
   'settings-save': () => {
     const f = $('#settings-form'); const st = S(); const num = ['passMark', 'periods', 'periodMinutes', 'breakAfter', 'breakMinutes', 'maxResit', 'bandExcellent', 'bandVgood', 'bandGood', 'absenceWarn', 'absenceLimit'];
     const nb = num.map(k => f.elements[k] ? +f.elements[k].value : 0);

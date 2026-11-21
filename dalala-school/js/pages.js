@@ -195,6 +195,21 @@ function renderReportCards(p) {
         <td><button class="icon-btn" data-act="rc-print" data-sid="${x.s.id}" data-term="${term}" title="${t('print')}">${icon('printer')}</button></td></tr>`; }).join('')}
       </tbody></table></div>` : emptyState(t('noStudents'))}</div>`;
 }
+/* Official student documents (Libya): enrolment statement and transfer request. Wording is a template — adapt to the school's / ministry's form. */
+function studentDocHTML(kind, s) {
+  const cls = DB.get('classes', s.classId), st = S(), f = s.gender === 'female';
+  const nm = esc(loc(s)), school = esc(loc(st, 'schoolName')), yr = esc(st.year || '');
+  const data = `<div class="pbox"><div class="kv"><span>${t('f_name')}</span><b>${nm}</b></div><div class="kv"><span>${t('f_code')}</span><b>${esc(s.code || '')}</b></div>
+    <div class="kv"><span>${t('f_motherName')}</span><b>${esc(s.motherName || '—')}</b></div><div class="kv"><span>${t('f_nationalId')}</span><b>${esc(s.nationalId || '—')}</b></div>
+    <div class="kv"><span>${t('f_dob')}</span><b>${s.dob ? fmtDate(s.dob) : '—'}</b></div><div class="kv"><span>${t('f_birthPlace')}</span><b>${esc(s.birthPlace || '—')}</b></div>
+    <div class="kv"><span>${t('f_classId')}</span><b>${esc(classLabel(cls))}</b></div><div class="kv"><span>${t('f_year')}</span><b>${yr}</b></div></div>`;
+  const sign = `<div class="psign"><div>${t('f_supervision')}</div><div>${t('principal')}: ${esc(loc(st, 'principal'))}</div><div>${t('stamp')}</div></div>`;
+  if (kind === 'enrol') return `${printHeader(t('docEnrol'))}${data}<p style="font-size:15px;line-height:2.2;margin:18px 0">${t('docEnrolText').replace('{school}', school).replace('{name}', nm).replace('{class}', esc(classLabel(cls))).replace('{year}', yr)}</p>${sign}`;
+  return `${printHeader(t('docTransfer'))}${data}<p style="font-size:15px;line-height:2.2;margin:18px 0">${t('docTransferText').replace('{school}', school).replace('{name}', nm).replace('{class}', esc(classLabel(cls)))}</p>
+    <div class="pbox"><div class="kv"><span>${t('docToSchool')}</span><b>............................................</b></div><div class="kv"><span>${t('docReason')}</span><b>............................................</b></div>
+    <div class="kv"><span>${t('f_guardianName')}</span><b>${esc(s.guardianName || '............................')}</b></div><div class="kv"><span>${t('docGuardianSign')}</span><b>............................</b></div></div>${sign}`;
+}
+
 function reportCardHTML(s, term) {
   const cls = DB.get('classes', s.classId); const r = termResult(s, term);
   const rank = classResults(s.classId, term).find(x => x.s.id === s.id)?.rank;
@@ -330,6 +345,7 @@ function studentSections(s, { portal } = {}) {
       ${card(t('personalInfo'), `<div class="info-grid">${info.map(([l, v]) => `<div><span>${t(l)}</span><b>${esc(v || '—')}</b></div>`).join('')}</div>`)}
       ${card(t('homework'), hw.length ? `<ul class="list">${hw.map(h => `<li><span class="dot" style="background:${subjectColor(h.subjectId)}"></span><div><b>${esc(loc(h, 'title'))}</b><small>${esc(refLabel('subjects', h.subjectId))} · ${t('f_dueDate')}: ${fmtDate(h.dueDate)}</small></div>${h.dueDate >= today() ? badge('open') : badge('closed')}</li>`).join('')}</ul>` : emptyState(t('noData')))}
     </div>
+    ${portal ? '' : card(t('docsTitle'), `<div class="head-actions"><button class="btn ghost sm" data-act="stu-doc" data-kind="enrol" data-sid="${s.id}">${icon('printer')}<span>${t('docEnrol')}</span></button><button class="btn ghost sm" data-act="stu-doc" data-kind="transfer" data-sid="${s.id}">${icon('printer')}<span>${t('docTransfer')}</span></button></div>`)}
     ${card(`${t('academic')} — ${termName(1)}`, resTable(r1), `<button class="btn ghost sm" data-act="rc-print" data-sid="${s.id}" data-term="1">${icon('printer')}<span>${t('reportCard')}</span></button>`)}
     ${ab.level ? `<div class="alert ${ab.level}">${icon('alert')}<div><b>${t('abs_' + ab.level)}</b><span>${t('absAlertText').replace('{n}', fmtNum(ab.absRate, 1)).replace('{w}', S().absenceWarn).replace('{l}', S().absenceLimit)}</span></div></div>` : ''}
     ${r2.avg != null ? card(`${t('academic')} — ${termName(2)}`, resTable(r2), `<button class="btn ghost sm" data-act="rc-print" data-sid="${s.id}" data-term="2">${icon('printer')}<span>${t('reportCard')}</span></button>`) : ''}
@@ -406,11 +422,11 @@ function reportExport(what) {
   else if (what === 'absence') {
     const rows = DB.all('students').filter(s => s.status === 'active').map(s => ({ s, a: absenceInfo(s.id, s.classId) })).filter(x => x.a.level)
       .map(x => [x.s.code, loc(x.s), refLabel('classes', x.s.classId), x.a.A, x.a.total, x.a.absRate, t('abs_' + x.a.level), x.s.guardianName, x.s.guardianPhone]);
-    exportCSV('absence-warnings', [t('f_code'), t('f_name'), t('f_classId'), t('att_A'), t('total'), t('absenceYear'), t('f_status'), t('f_guardianName'), t('f_guardianPhone')], rows);
+    exportCSV('absence-warnings', [t('f_code'), t('f_name'), t('f_classId'), t('att_A'), t('total'), t('absenceYear'), t('f_status'), t('f_guardianName'), t('f_guardianPhone')], rows, t('absenceWarnings'));
   } else {
     const from = addDays(today(), -30);
     const rows = DB.all('students').filter(s => s.status === 'active').map(s => { const a = studentAttendance(s.id, s.classId, from); return [s.code, loc(s), refLabel('classes', s.classId), a.P, a.A, a.L, a.E, a.rate ?? '']; });
-    exportCSV('attendance-30d', [t('f_code'), t('f_name'), t('f_classId'), t('att_P'), t('att_A'), t('att_L'), t('att_E'), t('attendanceRate')], rows);
+    exportCSV('attendance-30d', [t('f_code'), t('f_name'), t('f_classId'), t('att_P'), t('att_A'), t('att_L'), t('att_E'), t('attendanceRate')], rows, t('nav_attendance'));
   }
 }
 

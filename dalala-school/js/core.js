@@ -281,18 +281,14 @@ function downloadFile(name, content, type) {
   a.download = name; document.body.appendChild(a); a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 800);
 }
-function exportCSV(name, headers, rows) {
+function csvFile(name, headers, rows) {
   const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
-  downloadFile(`${name}-${today()}.csv`, '﻿' + [headers, ...rows].map(r => r.map(q).join(',')).join('\r\n'), 'text/csv;charset=utf-8');
+  downloadFile(`${name}-${today()}.csv`, '\ufeff' + [headers, ...rows].map(r => r.map(q).join(',')).join('\r\n'), 'text/csv;charset=utf-8');
 }
-function printHTML(html) {
-  const pa = $('#print-area');
-  pa.setAttribute('dir', LANG === 'ar' ? 'rtl' : 'ltr');
-  pa.innerHTML = html;
-  document.body.classList.add('printing');
-  setTimeout(() => window.print(), 60);
-}
-window.addEventListener('afterprint', () => { document.body.classList.remove('printing'); $('#print-area').innerHTML = ''; });
+/* every export / print opens the output dialog (js/export.js): Excel, Word, PDF, CSV and A4 print options */
+function exportCSV(name, headers, rows, title) { outputDialog({ name, title: title || name, headers, rows }); }
+function printHTML(html, opts = {}) { outputDialog({ name: opts.name || 'document', title: opts.title || '', html, wide: opts.wide }); }
+window.addEventListener('afterprint', () => { document.body.classList.remove('printing'); $('#print-area').innerHTML = ''; const pg = $('#pg-style'); if (pg) pg.remove(); });
 function printHeader(title) {
   const st = S();
   const ly = st.country === 'LY' ? `<div class="ph-gov"><b>${t('libyaState')}</b><span>${esc(loc(st, 'ministry'))}</span><span>${esc(loc(st, 'supervision'))}</span></div>` : '';

@@ -384,6 +384,14 @@ td.editable:hover .slot { outline: 2px solid var(--primary); outline-offset: -2p
 .demo-b:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-soft); }
 .foot { position: absolute; bottom: 14px; color: var(--soft); font-size: 12px; margin: 0; }
 
+/* ---------- output dialog ---------- */
+.out-opts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+.out-opts label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted, #64748b); font-weight: 700; }
+.out-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.out-grid .out-btn { justify-content: center; padding: 12px; }
+.out-grid .out-btn.primary { grid-column: 1 / -1; font-size: 15px; }
+@media (max-width: 520px) { .out-opts { grid-template-columns: 1fr; } }
+
 /* ---------- print ---------- */
 #print-area { display: none; }
 .ph { display: flex; align-items: center; gap: 14px; border-bottom: 3px solid #4f46e5; padding-bottom: 12px; margin-bottom: 16px; }

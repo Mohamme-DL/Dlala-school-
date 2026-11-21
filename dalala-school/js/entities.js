@@ -443,7 +443,7 @@ function refreshCrud(key) { const el = $('#crud-' + key); if (el) el.innerHTML =
 
 function exportCrud(key) {
   const cfg = ENT[key]; const cols = cfg.fields.filter(f => f.type !== 'password');
-  exportCSV(key, cols.map(fieldLabel), crudRows(key).map(r => cols.map(f => cellText(f, r))));
+  exportCSV(key, cols.map(fieldLabel), crudRows(key).map(r => cols.map(f => cellText(f, r))), t('nav_' + key));
 }
 
 /* ---------- Form ---------- */
@@ -571,7 +571,7 @@ function printInvoice(inv) {
     <h4>${t('nav_payments')}</h4><table class="ptable"><thead><tr><th>${t('f_receiptNo')}</th><th>${t('f_date')}</th><th>${t('f_method')}</th><th>${t('f_amount')}</th></tr></thead>
     <tbody>${pays.map(p => `<tr><td>${esc(p.receiptNo)}</td><td>${fmtDate(p.date)}</td><td>${t('opt_' + p.method)}</td><td>${moneyText(p.amount)}</td></tr>`).join('') || `<tr><td colspan="4">—</td></tr>`}</tbody></table>
     <div class="ptotals"><div><span>${t('f_paid')}</span><b>${moneyText(invPaid(inv))}</b></div><div><span>${t('f_balance')}</span><b>${moneyText(invBalance(inv))}</b></div><div><span>${t('f_status')}</span><b>${t('opt_' + invStatus(inv))}</b></div></div>
-    <div class="psign"><div>${t('accountantSign')}</div><div>${t('stamp')}</div></div>`);
+    <div class="psign"><div>${t('accountantSign')}</div><div>${t('stamp')}</div></div>`, { name: 'invoice', title: t('invoice') });
 }
 function printReceipt(p) {
   const inv = DB.get('invoices', p.invoiceId), s = DB.get('students', inv?.studentId);
@@ -580,5 +580,5 @@ function printReceipt(p) {
     <div class="kv"><span>${t('forPayment')}</span><b>${esc(refLabel('feeTypes', inv?.feeTypeId))} (${esc(inv?.number)})</b></div><div class="kv"><span>${t('f_method')}</span><b>${t('opt_' + p.method)}</b></div></div>
     <div class="pamount">${t('f_amount')}: <b>${moneyText(p.amount)}</b></div>
     <div class="ptotals"><div><span>${t('f_net')}</span><b>${moneyText(invNet(inv))}</b></div><div><span>${t('f_paid')}</span><b>${moneyText(invPaid(inv))}</b></div><div><span>${t('f_balance')}</span><b>${moneyText(invBalance(inv))}</b></div></div>
-    <div class="psign"><div>${t('accountantSign')}</div><div>${t('stamp')}</div></div>`);
+    <div class="psign"><div>${t('accountantSign')}</div><div>${t('stamp')}</div></div>`, { name: 'receipt', title: t('receipt') });
 }
