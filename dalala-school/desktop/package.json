@@ -1,7 +1,7 @@
 {
   "name": "dalala-school",
   "productName": "Dalala School System",
-  "version": "1.4.1",
+  "version": "1.5.1",
   "description": "منظومة دلالة للمدارس — Dalala School System",
   "author": "Dalala",
   "license": "UNLICENSED",
@@ -10,13 +10,13 @@
     "sync": "node build-app.js --dev",
     "start": "npm run sync && electron .",
     "build-app": "node build-app.js",
-    "pack": "node build-app.js && electron-builder --win dir --x64 && node set-exe-meta.mjs",
+    "pack": "node build-app.js && electron-builder --win dir --ia32 && node set-exe-meta.mjs",
     "dist": "npm run pack && node make-installer.js",
-    "dist:builder": "node build-app.js && electron-builder --win nsis --x64"
+    "dist:builder": "node build-app.js && electron-builder --win nsis --ia32"
   },
   "devDependencies": {
     "@electron/fuses": "^1.8.0",
-    "electron": "33.2.1",
+    "electron": "22.3.27",
     "electron-builder": "25.1.8",
     "javascript-obfuscator": "4.2.2",
     "resedit": "^2.0.3"
@@ -38,7 +38,7 @@
         {
           "target": "nsis",
           "arch": [
-            "x64"
+            "ia32"
           ]
         }
       ],

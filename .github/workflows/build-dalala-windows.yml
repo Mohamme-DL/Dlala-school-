@@ -32,7 +32,7 @@ jobs:
       - name: Build installer
         run: |
           node build-app.js
-          npx electron-builder --win nsis --x64 --config.win.signAndEditExecutable=true
+          npx electron-builder --win nsis --ia32 --config.win.signAndEditExecutable=true
 
       - uses: actions/upload-artifact@v4
         with:
