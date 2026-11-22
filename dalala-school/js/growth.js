@@ -35,12 +35,12 @@ function renderDues(params) {
   const tb = sum(rows, r => r.billed), tp = sum(rows, r => r.paid), tr = sum(rows, r => r.bal);
   const opts = sortedClasses().map(c => `<option value="${c.id}" ${c.id === cid ? 'selected' : ''}>${esc(classLabel(c))}</option>`).join('');
   return `${pageHead(t('nav_dues'), t('sub_dues'), `<button class="btn ghost" data-act="dues-export">${icon('download')}<span>${t('export')}</span></button>`)}
-    <div class="toolbar" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
-      <select class="input" data-dues-f="cls" style="max-width:260px"><option value="">${t('allClasses')}</option>${opts}</select>
-      <select class="input" data-dues-f="owing" style="max-width:220px"><option value="0" ${owing ? '' : 'selected'}>${t('allStudents')}</option><option value="1" ${owing ? 'selected' : ''}>${t('onlyOwing')}</option></select></div>
+    <div class="toolbar" style="grid-template-columns:repeat(auto-fit,minmax(200px,260px))">
+      <select class="input" data-dues-f="cls" ><option value="">${t('allClasses')}</option>${opts}</select>
+      <select class="input" data-dues-f="owing" ><option value="0" ${owing ? '' : 'selected'}>${t('allStudents')}</option><option value="1" ${owing ? 'selected' : ''}>${t('onlyOwing')}</option></select></div>
     <div class="table-wrap"><table class="table"><thead><tr><th>${t('f_code')}</th><th>${t('f_name')}</th><th>${t('f_classId')}</th><th>${t('totalBilled')}</th><th>${t('f_paid')}</th><th>${t('f_balance')}</th><th>${t('f_guardianPhone')}</th><th></th></tr></thead><tbody>
-    ${rows.map(r => `<tr><td>${esc(r.s.code)}</td><td><a class="who" href="#/student/${r.s.id}">${avatar(r.s)}<span>${esc(loc(r.s))}</span></a></td><td>${esc(refLabel('classes', r.s.classId))}</td><td>${fmtMoney(r.billed)}</td><td>${fmtMoney(r.paid)}</td><td><b>${fmtMoney(r.bal)}</b></td><td dir="ltr">${esc(r.s.guardianPhone)}</td><td>${r.bal > 0 ? `<button class="btn ghost sm" data-act="wa-student" data-id="${r.s.id}">${icon('whatsapp')}<span>${t('remind')}</span></button>` : ''}</td></tr>`).join('') || `<tr><td colspan="8">${emptyState(t('noData'))}</td></tr>`}
-    <tr class="total-row"><td colspan="3">${t('duesTotal')} (${fmtNum(rows.length)} ${t('nStudents')})</td><td>${fmtMoney(tb)}</td><td>${fmtMoney(tp)}</td><td>${fmtMoney(tr)}</td><td></td><td></td></tr></tbody></table></div>`;
+    ${rows.map(r => `<tr><td>${esc(r.s.code)}</td><td><a class="who" href="#/student/${r.s.id}">${avatar(r.s)}<span>${esc(loc(r.s))}</span></a></td><td style="min-width:150px">${esc(refLabel('classes', r.s.classId))}</td><td class="nw">${fmtMoney(r.billed)}</td><td class="nw">${fmtMoney(r.paid)}</td><td class="nw"><b>${fmtMoney(r.bal)}</b></td><td dir="ltr">${esc(r.s.guardianPhone)}</td><td>${r.bal > 0 ? `<button class="btn ghost sm" data-act="wa-student" data-id="${r.s.id}">${icon('whatsapp')}<span>${t('remind')}</span></button>` : ''}</td></tr>`).join('') || `<tr><td colspan="8">${emptyState(t('noData'))}</td></tr>`}
+    <tr class="total-row"><td colspan="3">${t('duesTotal')} (${fmtNum(rows.length)} ${t('nStudents')})</td><td class="nw">${fmtMoney(tb)}</td><td class="nw">${fmtMoney(tp)}</td><td class="nw">${fmtMoney(tr)}</td><td></td><td></td></tr></tbody></table></div>`;
 }
 function duesExport() {
   const { params } = parseHash(); const rows = duesRows(params.cls || '', params.owing === '1');

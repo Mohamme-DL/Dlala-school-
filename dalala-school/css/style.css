@@ -554,3 +554,37 @@ td.editable:hover .slot { outline: 2px solid var(--primary); outline-offset: -2p
 .pwords{text-align:center;font-size:14px;margin:4px 0 12px;padding:6px 10px;border:1px dashed #94a3b8;border-radius:8px}
 
 .ref-empty { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 6px; padding: 8px 10px; border: 1px dashed var(--warn, #d97706); border-radius: 10px; background: rgba(217,119,6,.08); font-size: 12.5px; }
+
+/* ---- layout polish: uniform control heights, aligned toolbars, tidy forms and tables ---- */
+.input:not(textarea):not([multiple]):not([type=checkbox]):not([type=radio]):not([type=file]):not(.mark) { height: 42px; padding-block: 0; }
+.input.sm:not(textarea) { height: 38px; }
+textarea.input { min-height: 84px; padding: 10px 12px; resize: vertical; }
+select.input { padding-inline-end: 12px; cursor: pointer; }
+input[type=date].input, input[type=time].input, input[type=month].input { text-align: start; }
+.form-grid { align-items: start; }
+.field > span { min-height: 18px; line-height: 18px; }
+.photo-field { justify-content: flex-start; padding: 6px 0 2px; }
+.btn { min-height: 40px; justify-content: center; }
+.btn.sm { min-height: 34px; padding: 6px 12px; }
+.btn.block { width: 100%; }
+.page-head > :last-child:not(:only-child), .head-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.toolbar { display: grid; grid-template-columns: minmax(200px, 1.4fr) repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; align-items: center; }
+.toolbar .search { max-width: none; min-width: 0; }
+.toolbar .input.sm { width: 100%; min-width: 0; }
+.toolbar > .btn { justify-self: start; }
+.table td, .table th { vertical-align: middle; }
+.table td:first-child, .table td[dir=ltr] { white-space: nowrap; }
+.table td .btn.sm { margin-inline: auto; }
+.table-wrap { overflow-x: auto; }
+.table td .badge { margin-inline: auto; }
+.modal-foot, .modal .foot { display: flex; gap: 8px; align-items: center; }
+@media (max-width: 720px) {
+  .toolbar { grid-template-columns: 1fr 1fr; }
+  .toolbar .search { grid-column: 1 / -1; }
+  .page-head > :last-child:not(:only-child), .head-actions { width: 100%; }
+  .page-head .btn:not(.primary) span { display: none; }
+  .page-head .btn:not(.primary) { padding-inline: 12px; }
+}
+.table td.nw, .table td .money { white-space: nowrap; }
+.photo-field { flex-direction: row; gap: 16px; }
+.photo-field .av { flex: none; }
