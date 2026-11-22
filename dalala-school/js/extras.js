@@ -437,3 +437,20 @@ Object.assign(I18N.en, { fullscreen: 'Full screen',
   noPermission: 'You do not have permission for this action', choosePhoto: 'Choose photo', removePhoto: 'Remove photo',
   permCustom: 'Customise this user’s permissions', permHint: 'When off, the default permissions of the account type apply. Users and Settings are administrator-only.', permPreset: 'Reset to account-type defaults', permSection: 'Section', permView: 'View', permEdit: 'Add & edit',
 });
+
+/* Full names: the form asks for a three- or four-part name, not just a first name */
+{
+  const FULL = [['students', 'name', 3], ['students', 'guardianName', 3], ['admissions', 'name', 3], ['admissions', 'guardianName', 3], ['employees', 'name', 3]];
+  FULL.forEach(([ent, k, n]) => {
+    const f = ENT[ent].fields.find(x => x.k === k); if (!f) return;
+    f.labelKey = k === 'guardianName' ? 'lblGuardianFull' : 'lblNameFull'; f.ph = k === 'guardianName' ? 'phGuardianFull' : 'phNameFull';
+    const prev = ENT[ent].validate;
+    ENT[ent].validate = (r, old) => {
+      const v = String(r[k] || '').trim().split(/\s+/).filter(Boolean);
+      if ((!old || String(old[k] || '').trim() !== String(r[k] || '').trim()) && v.length < n) return `${t(f.labelKey)}: ${t('errFullName')}`;
+      return prev ? prev(r, old) : null;
+    };
+  });
+  Object.assign(I18N.ar, { lblNameFull: 'الاسم الكامل (ثلاثي أو رباعي)', lblGuardianFull: 'اسم ولي الأمر (ثلاثي)', phNameFull: 'مثال: محمد علي سالم الورفلي', phGuardianFull: 'مثال: علي سالم محمد', errFullName: 'اكتب الاسم ثلاثياً على الأقل (الاسم + الأب + الجد)' });
+  Object.assign(I18N.en, { lblNameFull: 'Full name (3 or 4 parts)', lblGuardianFull: 'Guardian full name (3 parts)', phNameFull: 'e.g. Mohammed Ali Salem Al-Worfali', phGuardianFull: 'e.g. Ali Salem Mohammed', errFullName: 'Enter at least three names (first + father + grandfather)' });
+}

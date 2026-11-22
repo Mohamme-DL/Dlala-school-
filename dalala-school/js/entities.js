@@ -346,6 +346,7 @@ function fieldOpts(f) {
   return (o || []).map(v => ({ v, l: f.optLabel ? f.optLabel(v) : t('opt_' + v) }));
 }
 const fieldLabel = f => t('f_' + f.k);
+const formLabel = f => (f.labelKey ? t(f.labelKey) : fieldLabel(f));
 function can(roles) { return !!USER && (USER.role === 'admin' || (roles || ['admin']).includes(USER.role)); }
 
 /* ---------- cell rendering ---------- */
@@ -463,7 +464,7 @@ function inputHtml(f, v, rec) {
     default: {
       const dl = f.datalist ? `<datalist id="dl-${f.k}">${f.datalist().map(o => `<option value="${esc(o)}">`).join('')}</datalist>` : '';
       if (f.type === 'password') return `<input class="input" type="password" ${name} value="" autocomplete="new-password" dir="ltr" ${rec && rec.id ? '' : 'required'}><small class="muted">${rec && rec.id ? t('passKeepHint') : ''}</small>`;
-      return `<input class="input" type="${f.type}" ${name} value="${esc(v)}" ${req} ${dir} ${dl ? `list="dl-${f.k}"` : ''}>${dl}`;
+      return `<input class="input" type="${f.type}" ${name} value="${esc(v)}" ${req} ${dir} ${f.ph ? `placeholder="${esc(t(f.ph))}"` : ''} ${dl ? `list="dl-${f.k}"` : ''}>${dl}`;
     }
   }
 }
@@ -479,7 +480,7 @@ function openForm(key, id, preset = {}) {
   const fields = cfg.fields.filter(f => f.type !== 'calc');
   const root = modal({
     title: `${t(old ? 'edit' : 'add')} — ${t('ent_' + key)}`, size: 'lg',
-    body: `<form id="mform" class="form-grid" novalidate>${fields.map(f => `<label class="field ${f.full ? 'full' : ''}"><span>${fieldLabel(f)}${f.req ? ' <i class="req">*</i>' : ''}</span>${inputHtml(f, rec[f.k] ?? '', rec)}</label>`).join('')}
+    body: `<form id="mform" class="form-grid" novalidate>${fields.map(f => `<label class="field ${f.full ? 'full' : ''}"><span>${formLabel(f)}${f.req ? ' <i class="req">*</i>' : ''}</span>${inputHtml(f, rec[f.k] ?? '', rec)}</label>`).join('')}
       <div class="form-err full" hidden></div></form>`,
     footer: `<button class="btn ghost" type="button" data-cancel>${t('cancel')}</button><button class="btn primary" type="submit" form="mform">${icon('check')}<span>${t('save')}</span></button>`,
   });
