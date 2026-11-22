@@ -458,3 +458,21 @@ Object.assign(I18N.en, { fullscreen: 'Full screen',
 
 Object.assign(I18N.ar, { noRefHint: 'لا توجد بيانات بعد في', addFirst: 'إضافة', noRefOption: '— لا يوجد، أضف أولاً —' });
 Object.assign(I18N.en, { noRefHint: 'Nothing yet in', addFirst: 'Add', noRefOption: '— none yet, add one first —' });
+
+/* Admissions → student: the application's data is copied into the student form (nothing is typed twice);
+   the registrar completes the remaining fields and saves; the application is then marked "enrolled". */
+function enrollApplicant(a) {
+  const cls = sortedClasses().filter(c => +c.grade === +a.grade).sort((x, y) => studentsOfClass(x.id).length - studentsOfClass(y.id).length)[0];
+  const preset = { name: a.name, nameEn: a.nameEn || '', gender: a.gender, dob: a.dob || '', guardianName: a.guardianName, guardianPhone: a.guardianPhone, guardianRelation: 'father', enrollDate: today(), status: 'active', admissionId: a.id };
+  if (cls) preset.classId = cls.id;
+  openForm('students', null, preset);
+  if (!cls) toast(t('errNoClass'), 'err');
+}
+{
+  const E = ENT.students, prev = E.afterSave;
+  E.afterSave = (rec, isNew) => {
+    if (isNew && rec && rec.admissionId) { const a = DB.get('admissions', rec.admissionId); if (a) DB.update('admissions', a.id, { status: 'enrolled' }); }
+    if (prev) prev(rec, isNew);
+  };
+  ENT.admissions.actions = [{ icon: 'userPlus', label: 'enroll', show: r => !['enrolled', 'rejected'].includes(r.status), fn: r => enrollApplicant(r) }];
+}
