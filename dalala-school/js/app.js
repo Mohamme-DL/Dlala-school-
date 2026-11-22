@@ -34,6 +34,7 @@ const MENU = [
     { id: 'invoices', icon: 'receipt', roles: ['admin', 'accountant'] },
     { id: 'payments', icon: 'wallet', roles: ['admin', 'accountant'] },
     { id: 'feeTypes', icon: 'tag', roles: ['admin', 'accountant'] },
+    { id: 'dues', icon: 'users', roles: ['admin', 'accountant'] },
     { id: 'treasury', icon: 'chart', roles: ['admin', 'accountant'] },
   ] },
   { g: 'g_services', items: [
@@ -53,7 +54,7 @@ const MENU = [
   ] },
 ];
 const PAGES = {
-  dashboard: renderDashboard, employee: renderEmployee, treasury: renderTreasury, attendance: renderAttendance, marks: renderMarks, reportcards: renderReportCards,
+  dashboard: renderDashboard, dues: renderDues, employee: renderEmployee, treasury: renderTreasury, attendance: renderAttendance, marks: renderMarks, reportcards: renderReportCards,
   timetable: renderTimetable, certificates: renderCertificates, messages: renderMessages, calendar: renderCalendar, reports: renderReports, settings: renderSettings, student: renderStudent,
   announcements: () => (canEdit('announcements') ? renderCrud('announcements') : pageHead(t('nav_announcements'), t('sub_announcements')) + `<div class="cards-grid">${visibleAnnouncements().map(annCard).join('') || emptyState(t('noData'))}</div>`),
 };
