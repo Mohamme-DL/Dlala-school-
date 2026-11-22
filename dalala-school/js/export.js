@@ -46,7 +46,7 @@ function buildXLSX(sheetName, headers, rows) {
     { name: '_rels/.rels', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${R}/officeDocument" Target="xl/workbook.xml"/></Relationships>` },
     { name: 'xl/workbook.xml', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="${NS}" xmlns:r="${R}"><bookViews><workbookView/></bookViews><sheets><sheet name="${xmlEsc(sheet)}" sheetId="1" r:id="rId1"/></sheets></workbook>` },
     { name: 'xl/_rels/workbook.xml.rels', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${R}/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="${R}/styles" Target="styles.xml"/></Relationships>` },
-    { name: 'xl/styles.xml', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="${NS}"><fonts count="2"><font><sz val="11"/><name val="Arial"/></font><font><b/><sz val="11"/><color rgb="FF1E1B4B"/><name val="Arial"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE0E7FF"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFBFC5D2"/></left><right style="thin"><color rgb="FFBFC5D2"/></right><top style="thin"><color rgb="FFBFC5D2"/></top><bottom style="thin"><color rgb="FFBFC5D2"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="${rtl ? 'right' : 'left'}" vertical="center"/></xf></cellXfs></styleSheet>` },
+    { name: 'xl/styles.xml', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="${NS}"><fonts count="2"><font><sz val="11"/><name val="Arial"/></font><font><b/><sz val="11"/><color rgb="FF1E1B4B"/><name val="Arial"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE0E7FF"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFBFC5D2"/></left><right style="thin"><color rgb="FFBFC5D2"/></right><top style="thin"><color rgb="FFBFC5D2"/></top><bottom style="thin"><color rgb="FFBFC5D2"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf></cellXfs></styleSheet>` },
     { name: 'xl/worksheets/sheet1.xml', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="${NS}"><sheetViews><sheetView workbookViewId="0" rightToLeft="${rtl ? 1 : 0}"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="18"/><cols>${widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w.toFixed(1)}" customWidth="1"/>`).join('')}</cols><sheetData>${sd}</sheetData><autoFilter ref="A1:${last}"/><pageMargins left="0.5" right="0.5" top="0.6" bottom="0.6" header="0.3" footer="0.3"/><pageSetup paperSize="9" orientation="${headers.length > 7 ? 'landscape' : 'portrait'}" fitToHeight="0"/></worksheet>` },
   ]);
 }
@@ -67,17 +67,29 @@ function docxPackage(bodyXml, p, extraFiles = [], extraTypes = '', extraRels = '
     ...extraFiles,
   ]);
 }
+/* Arabic paragraphs: codes, numbers, dates and Latin names must stay left-to-right as one unit (otherwise «STD-00001» comes out as «00001-STD» or breaks into pieces) */
+const LTR_TOKEN = /[A-Za-z0-9][A-Za-z0-9 \-_.:\/@+#,]*[A-Za-z0-9)]|[A-Za-z0-9]/g;
+function ltrFix(s) { return LANG === 'ar' ? String(s ?? '').replace(LTR_TOKEN, m => '\u200E' + m + '\u200E') : String(s ?? ''); }
 function wPara(text, { bold = false, size = 22, center = false, color = '' } = {}) {
   const rtl = LANG === 'ar';
-  return `<w:p><w:pPr>${rtl ? '<w:bidi/>' : ''}<w:jc w:val="${center ? 'center' : 'start'}"/></w:pPr><w:r><w:rPr>${bold ? '<w:b/><w:bCs/>' : ''}${color ? `<w:color w:val="${color}"/>` : ''}${rtl ? '<w:rtl/>' : ''}<w:sz w:val="${size}"/><w:szCs w:val="${size}"/></w:rPr><w:t xml:space="preserve">${xmlEsc(text)}</w:t></w:r></w:p>`;
+  const run = (txt, isRtl) => `<w:r><w:rPr>${bold ? '<w:b/><w:bCs/>' : ''}${color ? `<w:color w:val="${color}"/>` : ''}${isRtl ? '<w:rtl/>' : ''}<w:sz w:val="${size}"/><w:szCs w:val="${size}"/></w:rPr><w:t xml:space="preserve">${xmlEsc(txt)}</w:t></w:r>`;
+  let runs;
+  if (!rtl) runs = run(String(text ?? ''), false);
+  else {   // Arabic runs are right-to-left; codes, numbers and Latin names are their own left-to-right runs so they keep their order
+    const str = String(text ?? ''); let last = 0; const out = []; let m; LTR_TOKEN.lastIndex = 0;
+    while ((m = LTR_TOKEN.exec(str))) { if (m.index > last) out.push(run(str.slice(last, m.index), true)); out.push(run(m[0], false)); last = m.index + m[0].length; }
+    if (last < str.length) out.push(run(str.slice(last), true));
+    runs = out.join('') || run('', true);
+  }
+  return `<w:p><w:pPr>${rtl ? '<w:bidi/>' : ''}<w:jc w:val="${center ? 'center' : 'start'}"/></w:pPr>${runs}</w:p>`;
 }
 function buildDOCXTable(title, headers, rows, p) {
   const rtl = LANG === 'ar'; const st = S();
   const [pw, ph] = p.paper; const usable = Math.round(((p.landscape ? ph : pw) - 2 * p.margin) * MM_TW);
   const lens = headers.map((h, c) => Math.min(30, Math.max(4, String(h).length, ...rows.map(r => String(r[c] ?? '').length))));
-  const sum = lens.reduce((a, b) => a + b, 0); const cw = lens.map(l => Math.max(500, Math.floor(usable * l / sum)));
+  const sum = lens.reduce((a, b) => a + b, 0); const nc = headers.length, fs = nc > 14 ? 14 : nc > 10 ? 16 : nc > 7 ? 18 : 20, minW = nc > 14 ? 560 : 700; const tokW = headers.map((h, c) => Math.max(...[h, ...rows.map(r => r[c])].map(v => Math.max(0, ...String(v ?? '').split(/\s+/).map(w => w.length))))); let cw = lens.map((l, c) => Math.max(minW, Math.min(2400, tokW[c] * fs * 10 + 160), Math.floor(usable * l / sum))); const tot = cw.reduce((a, b) => a + b, 0); if (tot > usable) cw = cw.map(w => Math.floor(w * usable / tot));
   const border = '<w:tblBorders>' + ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'].map(s => `<w:${s} w:val="single" w:sz="4" w:space="0" w:color="BFC5D2"/>`).join('') + '</w:tblBorders>';
-  const tc = (txt, i, hdr) => `<w:tc><w:tcPr><w:tcW w:w="${cw[i]}" w:type="dxa"/>${hdr ? '<w:shd w:val="clear" w:color="auto" w:fill="E0E7FF"/>' : ''}<w:vAlign w:val="center"/></w:tcPr>${wPara(txt, { bold: hdr, size: 20, center: hdr })}</w:tc>`;
+  const tc = (txt, i, hdr) => `<w:tc><w:tcPr><w:tcW w:w="${cw[i]}" w:type="dxa"/>${hdr ? '<w:shd w:val="clear" w:color="auto" w:fill="E0E7FF"/>' : ''}<w:vAlign w:val="center"/></w:tcPr>${wPara(txt, { bold: hdr, size: fs, center: true })}</w:tc>`;
   const trs = [`<w:tr><w:trPr><w:tblHeader/></w:trPr>${headers.map((h, i) => tc(h, i, true)).join('')}</w:tr>`, ...rows.map(r => `<w:tr><w:trPr><w:cantSplit/></w:trPr>${headers.map((_, i) => tc(r[i], i, false)).join('')}</w:tr>`)].join('');
   const body = `${wPara(loc(st, 'schoolName') || '', { bold: true, size: 30, center: true, color: '312E81' })}${wPara(title, { bold: true, size: 26, center: true })}${wPara(`${t('f_year')}: ${st.year || ''}   ·   ${fmtDate(today())}`, { size: 20, center: true, color: '555555' })}<w:p/><w:tbl><w:tblPr><w:tblW w:w="${usable}" w:type="dxa"/>${rtl ? '<w:bidiVisual/>' : ''}${border}<w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="70" w:type="dxa"/><w:right w:w="70" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${cw.map(w => `<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>${trs}</w:tbl>`;
   return docxPackage(body, p);
@@ -126,7 +138,7 @@ const OUT = {
   resolve(o, wide) { return { paperName: o.paper, paper: PAPERS[o.paper], landscape: o.orient === 'landscape' || (o.orient === 'auto' && !!wide), margin: o.margin }; },
 };
 function tableHTML(headers, rows) {
-  return `<table class="ptable small"><thead><tr><th>#</th>${headers.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map((r, i) => `<tr><td>${i + 1}</td>${headers.map((_, c) => `<td>${esc(r[c] ?? '')}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+  return `<table class="ptable small"><thead><tr><th>#</th>${headers.map(h => `<th dir="auto">${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map((r, i) => `<tr><td>${i + 1}</td>${headers.map((_, c) => `<td dir="auto">${esc(r[c] ?? '')}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
 }
 function safeName(n) { return String(n || 'export').replace(/[\\/:*?"<>|\s]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'export'; }
 

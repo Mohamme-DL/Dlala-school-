@@ -126,6 +126,7 @@ function revealPasswordFlow(u) {
 {
   const U = ENT.users;
   const pf = U.fields.find(f => f.k === 'password'); pf.req = 0;
+  U.fields.find(f => f.k === 'role').optLabel = v => t('role_' + v);   // «مدير النظام» for the administrator (not the same word as the administrative staff)
   U.validate = (r, old) => {
     if (old && old.main && !USER.main) return t('errMainAdmin');
     if (old && old.main && r.password) return t('errMainPass');

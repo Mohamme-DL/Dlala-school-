@@ -160,8 +160,9 @@ a.who:hover span { color: var(--primary); }
 /* ---------- table ---------- */
 .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
 .table { width: 100%; border-collapse: collapse; font-size: 14px; }
-.table th { background: var(--panel-2); color: var(--muted); font-weight: 700; font-size: 12.5px; text-align: start; padding: 11px 14px; white-space: nowrap; border-bottom: 1px solid var(--line); }
-.table td { padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.table th { background: var(--panel-2); color: var(--muted); font-weight: 700; font-size: 12.5px; text-align: center; padding: 11px 14px; white-space: nowrap; border-bottom: 1px solid var(--line); }
+.table td { padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; text-align: center; }
+.table td > .row, .table td > .cell-name, .table td > .who, .table td > .actions, .table td > .row-actions { justify-content: center; margin-inline: auto; }
 .table tbody tr:last-child td { border-bottom: 0; }
 .table tbody tr:hover td { background: var(--panel-2); }
 .table.compact td, .table.compact th { padding: 8px 10px; font-size: 13px; }
@@ -405,7 +406,7 @@ td.editable:hover .slot { outline: 2px solid var(--primary); outline-offset: -2p
 .ptable { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 12.5px; }
 .ptable th, .ptable td { border: 1px solid #ccc; padding: 6px 8px; text-align: center; }
 .ptable th { background: #eef2ff; }
-.ptable td:first-child { text-align: start; font-weight: 600; }
+.ptable td:first-child { text-align: center; font-weight: 600; }
 .ptotals { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
 .ptotals > div { flex: 1; border: 1px solid #ddd; border-radius: 8px; padding: 8px 12px; display: flex; flex-direction: column; font-size: 12px; } .ptotals b { font-size: 15px; }
 .pamount { font-size: 18px; padding: 14px; border: 2px dashed #4f46e5; border-radius: 10px; text-align: center; margin-bottom: 14px; }
