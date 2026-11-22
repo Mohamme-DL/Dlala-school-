@@ -121,6 +121,7 @@ document.addEventListener('change', async e => {
   inp.value = ''; if (n) { toast(t('saved')); render(); }
 });
 const EXTRA_ACT = {
+  'goto-add': el => { const key = el.dataset.key; closeModal(); location.hash = '#/' + key; setTimeout(() => openForm(key), 350); },
   'doc-scan': el => scanFlow(el.dataset.ot, el.dataset.oid, el.closest('.doc-up').querySelector('[data-dx-kind]').value),
   'doc-view': async el => {
     const d = DB.get('docs', el.dataset.id); const blob = d && await FILES.get(d.id);
@@ -454,3 +455,6 @@ Object.assign(I18N.en, { fullscreen: 'Full screen',
   Object.assign(I18N.ar, { lblNameFull: 'الاسم الكامل (ثلاثي أو رباعي)', lblGuardianFull: 'اسم ولي الأمر (ثلاثي)', phNameFull: 'مثال: محمد علي سالم الورفلي', phGuardianFull: 'مثال: علي سالم محمد', errFullName: 'اكتب الاسم ثلاثياً على الأقل (الاسم + الأب + الجد)' });
   Object.assign(I18N.en, { lblNameFull: 'Full name (3 or 4 parts)', lblGuardianFull: 'Guardian full name (3 parts)', phNameFull: 'e.g. Mohammed Ali Salem Al-Worfali', phGuardianFull: 'e.g. Ali Salem Mohammed', errFullName: 'Enter at least three names (first + father + grandfather)' });
 }
+
+Object.assign(I18N.ar, { noRefHint: 'لا توجد بيانات بعد في', addFirst: 'إضافة', noRefOption: '— لا يوجد، أضف أولاً —' });
+Object.assign(I18N.en, { noRefHint: 'Nothing yet in', addFirst: 'Add', noRefOption: '— none yet, add one first —' });

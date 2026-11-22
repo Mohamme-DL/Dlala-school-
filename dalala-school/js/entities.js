@@ -455,7 +455,11 @@ function inputHtml(f, v, rec) {
   switch (f.type) {
     case 'textarea': return `<textarea class="input" rows="3" ${name} ${req} ${dir}>${esc(v)}</textarea>`;
     case 'select': return `<select class="input" ${name} ${req}><option value="">—</option>${fieldOpts(f).map(o => `<option value="${esc(o.v)}" ${String(v) === String(o.v) ? 'selected' : ''}>${esc(o.l)}</option>`).join('')}</select>`;
-    case 'ref': return `<select class="input" ${name} ${req}><option value="">—</option>${refOptions(f, v).map(o => `<option value="${esc(o.v)}" ${v === o.v ? 'selected' : ''}>${esc(o.l)}</option>`).join('')}</select>`;
+    case 'ref': {
+      const ro = refOptions(f, v);
+      const hint = ro.length || !f.req || !ENT[f.ref] || !canEdit(f.ref) ? '' : `<div class="ref-empty"><span>${t('noRefHint')} «${esc(t('nav_' + f.ref))}»</span><button type="button" class="btn sm primary" data-act="goto-add" data-key="${f.ref}">${icon('plus')}<span>${t('addFirst')} ${esc(t('ent_' + f.ref))}</span></button></div>`;
+      return `<select class="input" ${name} ${req}><option value="">${ro.length ? '—' : t('noRefOption')}</option>${ro.map(o => `<option value="${esc(o.v)}" ${v === o.v ? 'selected' : ''}>${esc(o.l)}</option>`).join('')}</select>${hint}`;
+    }
     case 'multiref': return `<select class="input" ${name} multiple size="6">${refOptions(f, v || []).map(o => `<option value="${esc(o.v)}" ${(v || []).includes(o.v) ? 'selected' : ''}>${esc(o.l)}</option>`).join('')}</select><small class="hint">${t('multiHint')}</small>`;
     case 'photo': return photoFieldHTML(v);
     case 'perms': return permsEditorHTML(v, rec && rec.role);
