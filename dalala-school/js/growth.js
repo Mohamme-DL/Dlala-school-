@@ -230,3 +230,11 @@ ENT.students.tools = (ENT.students.tools || []).concat([
   { icon: 'layers', label: 'promote', roles: ['admin'], fn: () => openPromotion() },
 ]);
 ENT.students.actions = (ENT.students.actions || []).concat([{ icon: 'award', label: 'idStudent', fn: r => printStudentCards([r], 'student-card') }]);
+
+/* ================= date / time inputs: always Latin digits, left-to-right ================= */
+(function fixDateInputs() {
+  const fix = el => { if (el.dataset.dfix) return; el.dataset.dfix = 1; el.setAttribute('lang', 'en-GB'); el.setAttribute('dir', 'ltr'); };
+  const scan = root => (root.querySelectorAll ? root.querySelectorAll('input[type=date],input[type=time],input[type=month],input[type=datetime-local]') : []).forEach(fix);
+  new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType === 1) { if (n.matches && n.matches('input[type=date],input[type=time],input[type=month],input[type=datetime-local]')) fix(n); scan(n); } }))).observe(document.documentElement, { childList: true, subtree: true });
+  scan(document);
+})();

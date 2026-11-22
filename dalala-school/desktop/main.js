@@ -167,6 +167,8 @@ ipcMain.handle('file:openLast', e => { if (!fromMain(e) || !lastSaved || !fs.exi
 ipcMain.handle('bk:open', e => { if (!fromMain(e)) return false; fs.mkdirSync(BK_DIR(), { recursive: true }); shell.openPath(BK_DIR()); return true; });
 
 app.on('second-instance', () => { const w = win || actWin; if (w) { if (w.isMinimized()) w.restore(); w.focus(); } });
+// Native date/time fields follow the Chromium UI language; force Latin digits and LTR layout so Arabic Windows doesn't show reversed text
+app.commandLine.appendSwitch('lang', 'en-US');
 app.whenReady().then(async () => {
   NET = netConfig(); await startServer();
   state = lic.check(app.getPath('userData'));

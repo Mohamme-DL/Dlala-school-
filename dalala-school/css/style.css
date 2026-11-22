@@ -588,3 +588,5 @@ input[type=date].input, input[type=time].input, input[type=month].input { text-a
 .table td.nw, .table td .money { white-space: nowrap; }
 .photo-field { flex-direction: row; gap: 16px; }
 .photo-field .av { flex: none; }
+input[type=date], input[type=time], input[type=month], input[type=datetime-local] { direction: ltr; text-align: start; unicode-bidi: isolate; font-variant-numeric: lining-nums; }
+input[type=date]::-webkit-datetime-edit { direction: ltr; unicode-bidi: isolate; }
