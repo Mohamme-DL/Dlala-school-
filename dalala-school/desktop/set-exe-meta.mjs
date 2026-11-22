@@ -2,7 +2,7 @@
 import * as ResEdit from 'resedit';
 import fs from 'fs';
 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-const exePath = `dist/win-unpacked/${pkg.productName}.exe`;
+const exePath = `dist/win-ia32-unpacked/${pkg.productName}.exe`;
 const exe = ResEdit.NtExecutable.from(fs.readFileSync(exePath), { ignoreCert: true });
 const res = ResEdit.NtExecutableResource.from(exe);
 const ico = ResEdit.Data.IconFile.from(fs.readFileSync('build/icon.ico'));

@@ -63,7 +63,7 @@ Section "Install"
   nsExec::Exec 'taskkill /IM "${EXE}" /F'
   Sleep 400
   SetOutPath "$INSTDIR"
-  File /r "dist/win-unpacked/*.*"
+  File /r "dist/win-ia32-unpacked/*.*"
   File "build/icon.ico"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
 
