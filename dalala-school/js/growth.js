@@ -238,3 +238,66 @@ ENT.students.actions = (ENT.students.actions || []).concat([{ icon: 'award', lab
   new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType === 1) { if (n.matches && n.matches('input[type=date],input[type=time],input[type=month],input[type=datetime-local]')) fix(n); scan(n); } }))).observe(document.documentElement, { childList: true, subtree: true });
   scan(document);
 })();
+
+/* ================= receipt / payment voucher: same design as the Dalala Commercial receipts ================= */
+const C128 = ['212222','222122','222221','121223','121322','131222','122213','122312','132212','221213','221312','231212','112232','122132','122231','113222','123122','123221','223211','221132','221231','213212','223112','312131','311222','321122','321221','312212','322112','322211','212123','212321','232121','111323','131123','131321','112313','132113','132311','211313','231113','231311','112133','112331','132131','113123','113321','133121','313121','211331','231131','213113','213311','213131','311123','311321','331121','312113','312311','332111','314111','221411','431111','111224','111422','121124','121421','141122','141221','112214','112412','122114','122411','142112','142211','241211','221114','413111','241112','134111','111242','121142','121241','114212','124112','124211','411212','421112','421211','212141','214121','412121','111143','111341','131141','114113','114311','411113','411311','113141','114131','311141','411131','211412','211214','211232','2331112'];
+function code128SVG(text, h = 34, mod = 1.4) {
+  text = String(text || ''); if (!text || /[^\x20-\x7e]/.test(text)) return '';
+  const codes = [104]; let chk = 104; [...text].forEach((c, i) => { const v = c.charCodeAt(0) - 32; codes.push(v); chk += v * (i + 1); }); codes.push(chk % 103, 106);
+  let x = 10 * mod, bars = ''; codes.forEach(cv => { const p = C128[cv]; for (let i = 0; i < p.length; i++) { const w = +p[i] * mod; if (i % 2 === 0) bars += `<rect x="${x.toFixed(2)}" y="0" width="${w.toFixed(2)}" height="${h}"/>`; x += w; } });
+  const W = (x + 10 * mod).toFixed(2); return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${h}" viewBox="0 0 ${W} ${h}" fill="#000" style="display:block">${bars}</svg>`;
+}
+const CV_CSS = `<style>
+.cv{font-family:"Segoe UI",Tahoma,Arial,sans-serif;color:#000;background:#fff;max-width:780px;margin:0 auto;padding:6px 10px}
+.cv table{border-collapse:collapse;width:100%}
+.cv-head td{vertical-align:middle;padding:4px}
+.cv-store{font-size:26px;font-weight:bold}.cv-sub{font-size:14px;margin-top:4px}
+.cv-rule{border-top:1px solid #000;margin:12px 0 4px}
+.cv-bct{font-size:11px;letter-spacing:1px;direction:ltr;font-family:Consolas,monospace;margin-top:2px}
+.cv-title{text-align:center;margin:10px 0 16px}
+.cv-title span{background:#000;color:#fff;font-size:26px;font-weight:bold;padding:6px 54px 8px;border-radius:30px;display:inline-block;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.cv-box{border:1px solid #555;border-radius:10px;margin-bottom:12px;overflow:hidden}
+.cv-box td{padding:9px 14px;font-size:15px}
+.cv-lab{font-weight:bold;width:34%;background:#f2f2f2;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.cv-rows td{border-bottom:1px solid #bbb}.cv-rows tr:last-child td{border-bottom:none}
+.cv-amount{font-size:20px;font-weight:bold}
+.cv-lines th{background:#f2f2f2;padding:7px;border:1px solid #555;font-size:13px}
+.cv-lines td{padding:7px;border:1px solid #999;text-align:center;font-size:13px}
+.cv-sign{margin-top:26px}.cv-sign td{text-align:center;width:33%;vertical-align:top;font-weight:bold;font-size:14px;padding:6px}
+.cv-line{border-bottom:1px dashed #000;height:46px;margin:8px 18px;position:relative}
+.cv-line b{position:absolute;left:0;right:0;bottom:3px;font-size:15px}
+.cv-foot{border-top:1px solid #000;margin-top:30px;padding-top:8px;font-size:12px;text-align:center}
+</style>`;
+function voucherDoc(o) {
+  const st = S(); const store = esc(loc(st, 'schoolName')); const phone = st.phone ? `<span dir="ltr">${esc(st.phone)}</span>` : '';
+  const words = amountWords(o.amount); const user = o.user || (typeof USER !== 'undefined' && USER ? (loc(USER) || USER.username) : '');
+  const row = (l, v, cls = '') => `<tr><td class="cv-lab">${l}</td><td class="${cls}">${v}</td></tr>`;
+  const lines = (o.lines || []).length ? `<div class="cv-box" style="padding:10px"><table class="cv-lines"><tr>${o.lineHead.map(h => `<th>${esc(h)}</th>`).join('')}</tr>${o.lines.map(l => `<tr>${l.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</table></div>` : '';
+  return `${CV_CSS}<div class="cv">
+    <table class="cv-head"><tr><td><div class="cv-store">${store}</div>${st.address ? `<div class="cv-sub">${t('f_address')}: ${esc(loc(st, 'address') || st.address)}</div>` : ''}${phone ? `<div class="cv-sub">${t('f_phone')}: ${phone}</div>` : ''}</td>
+      <td style="width:40%;text-align:${LANG === 'ar' ? 'left' : 'right'};vertical-align:middle"><div style="display:inline-block">${code128SVG(o.no)}<div class="cv-bct">${esc(o.no)}</div></div></td></tr></table>
+    <div class="cv-rule"></div><div class="cv-title"><span>${esc(o.title)}</span></div>
+    ${o.voided ? `<div class="cv-title"><span style="background:#fff;color:#000;border:2px solid #000">${t('voided')} — ${esc(o.voidReason || '')}</span></div>` : ''}
+    <div class="cv-box"><table><tr><td class="cv-lab" style="width:20%">${t('cvNo')}</td><td>${esc(o.no)}</td><td class="cv-lab" style="width:16%">${t('f_date')}:</td><td>${fmtDate(o.date)}</td></tr></table></div>
+    <div class="cv-box"><table class="cv-rows">
+      ${row(esc(o.fromLabel), esc(o.party))}${(o.extra || []).map(([l, v]) => row(esc(l), esc(v))).join('')}
+      ${words ? row(t('cvWords'), esc(words)) : ''}${row(t('cvDigits'), moneyText(o.amount), 'cv-amount')}
+      ${o.remaining != null ? row(t('cvRemaining'), moneyText(o.remaining)) : ''}${row(t('f_method'), t('opt_' + o.method))}
+      ${row(esc(o.userLabel), `<b>${esc(user)}</b>`)}${row(t('f_notes'), esc(o.note || t('cvNoNotes')))}</table></div>
+    ${lines}
+    <table class="cv-sign"><tr><td>${esc(o.partyLabel)}<div class="cv-line"></div></td><td>${esc(o.userLabel)}<div class="cv-line"><b>${esc(user)}</b></div></td><td>${t('stamp')}<div class="cv-line"></div></td></tr></table>
+    <div class="cv-foot">${store}${phone ? ' · ' + phone : ''}</div></div>`;
+}
+Object.assign(I18N.ar, { cvNo: 'رقم الإيصال:', cvWords: 'مبلغ وقدره:', cvDigits: 'المبلغ بالأرقام:', cvRemaining: 'المتبقي بعد الدفعة:', cvNoNotes: 'لا توجد ملاحظات إضافية', cvReceiptTitle: 'إيصال قبض', cvPayTitle: 'إيصال صرف', cvFrom: 'استلمنا من السيد / ولي الأمر:', cvPaidTo: 'صرفنا إلى السيد / السيدة:', cvRecvBy: 'المستلم (مستخدم النظام)', cvPaidBy: 'المنفّذ (مستخدم النظام)', cvPayerSign: 'توقيع ولي الأمر', cvReceiverSign: 'توقيع المستفيد', cvInvNo: 'رقم الفاتورة', cvPaidAmt: 'المبلغ المسدد', cvFor: 'عن:', cvStudent: 'الطالب:' });
+Object.assign(I18N.en, { cvNo: 'Receipt no.:', cvWords: 'Amount in words:', cvDigits: 'Amount:', cvRemaining: 'Remaining after payment:', cvNoNotes: 'No additional notes', cvReceiptTitle: 'Receipt voucher', cvPayTitle: 'Payment voucher', cvFrom: 'Received from Mr./Mrs.:', cvPaidTo: 'Paid to Mr./Mrs.:', cvRecvBy: 'Received by (system user)', cvPaidBy: 'Paid by (system user)', cvPayerSign: 'Guardian signature', cvReceiverSign: 'Beneficiary signature', cvInvNo: 'Invoice no.', cvPaidAmt: 'Amount paid', cvFor: 'For:', cvStudent: 'Student:' });
+printReceipt = function (p) { // eslint-disable-line no-global-assign
+  p = DB.get('payments', p.id) || p; const inv = DB.get('invoices', p.invoiceId), s = DB.get('students', inv?.studentId);
+  printHTML(voucherDoc({ title: t('cvReceiptTitle'), no: p.receiptNo, date: p.date, fromLabel: t('cvFrom'), party: s ? (LANG === 'en' && s.guardianNameEn ? s.guardianNameEn : s.guardianName) || '—' : '—',
+    extra: [[t('cvStudent').replace(/:$/, '') + ':', `${loc(s)} — ${refLabel('classes', s?.classId)}`], [t('cvFor'), `${refLabel('feeTypes', inv?.feeTypeId)} (${inv?.number || ''})`]],
+    amount: p.amount, remaining: inv ? invBalance(inv) : null, method: p.method, note: p.note, voided: p.voided, voidReason: p.voidReason, userLabel: t('cvRecvBy'), partyLabel: t('cvPayerSign'), user: p.createdByName }), { name: 'receipt-' + p.receiptNo, title: t('receipt') });
+};
+printVoucher = function (p) { // eslint-disable-line no-global-assign
+  p = DB.get('salaryPays', p.id) || p; const pr = DB.get('payroll', p.payrollId) || {}, e = DB.get('employees', pr.employeeId) || {};
+  printHTML(voucherDoc({ title: t('cvPayTitle'), no: p.voucherNo, date: p.date, fromLabel: t('cvPaidTo'), party: loc(e) || '—', extra: [[t('cvFor'), `${t('salaryOf')} ${monthLabel(pr.month)}`]],
+    amount: p.amount, remaining: payBal(pr), method: p.method, note: p.note, voided: p.voided, voidReason: p.voidReason, userLabel: t('cvPaidBy'), partyLabel: t('cvReceiverSign'), user: p.createdByName }), { name: 'voucher-' + p.voucherNo, title: t('payVoucher') });
+};
