@@ -136,7 +136,7 @@ function attCounts(studs) {
 function renderMarks(p) {
   const exams = DB.all('exams').slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   const classes = sortedClasses();
-  if (!exams.length || !classes.length) return pageHead(t('nav_marks')) + emptyState(t('needExamsClasses'));
+  if (!exams.length || !classes.length) return pageHead(t('nav_marks'), t('sub_marks'), `<button class="btn primary" data-act="goto-add" data-key="exams">${icon('plus')}<span>${t('addExamBtn')}</span></button>`) + emptyState(t('needExamsClasses'));
   const exam = DB.get('exams', p.exam) || [...exams].reverse().find(e => e.date <= today()) || exams[0];
   const cls = DB.get('classes', p.class) || classes[0];
   const subs = subjectsForClass(cls);
@@ -145,9 +145,9 @@ function renderMarks(p) {
   if (!sub) return pageHead(t('nav_marks')) + emptyState(t('noSubjects'));
   const rec = DB.d.marks[`${exam.id}|${sub.id}`] || {};
   const studs = studentsOfClass(cls.id);
-  return `${pageHead(t('nav_marks'), t('sub_marks'))}
+  return `${pageHead(t('nav_marks'), t('sub_marks'), `<button class="btn primary" data-act="goto-add" data-key="exams">${icon('plus')}<span>${t('addExamBtn')}</span></button>`)}
     <div class="card"><div class="toolbar">
-      ${selectBox('exam', exams.map(e => ({ v: e.id, l: `${loc(e, 'title')} (${termName(e.term)})` })), exam.id, t('f_examId'))}
+      ${selectBox('exam', exams.map(e => ({ v: e.id, l: `${loc(e, 'title')} — ${t('opt_' + e.type)} (${termName(e.term)})` })), exam.id, t('f_examId'))}
       ${selectBox('class', classOpts(), cls.id, t('f_classId'))}
       ${selectBox('subject', subs.map(s => ({ v: s.id, l: loc(s) })), sub.id, t('f_subjectId'))}
       <span class="grow"></span><span class="pill">${t('f_maxMark')}: <b>${fmtNum(exam.maxMark)}</b></span>

@@ -301,3 +301,6 @@ printVoucher = function (p) { // eslint-disable-line no-global-assign
   printHTML(voucherDoc({ title: t('cvPayTitle'), no: p.voucherNo, date: p.date, fromLabel: t('cvPaidTo'), party: loc(e) || '—', extra: [[t('cvFor'), `${t('salaryOf')} ${monthLabel(pr.month)}`]],
     amount: p.amount, remaining: payBal(pr), method: p.method, note: p.note, voided: p.voided, voidReason: p.voidReason, userLabel: t('cvPaidBy'), partyLabel: t('cvReceiverSign'), user: p.createdByName }), { name: 'voucher-' + p.voucherNo, title: t('payVoucher') });
 };
+
+Object.assign(I18N.ar, { addExamBtn: 'إضافة اختبار / أعمال سنة', examHelp: 'نوع الاختبار: أعمال الفصل، اختبار قصير، شهري، منتصف الفصل (نصفي)، نهائي' });
+Object.assign(I18N.en, { addExamBtn: 'Add exam / coursework', examHelp: 'Exam type: coursework, quiz, monthly, midterm, final' });
