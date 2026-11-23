@@ -5,9 +5,57 @@ const DB_KEY = 'dalala_school_db_v2';
 const COLS = ['students', 'employees', 'classes', 'subjects', 'exams', 'homework', 'behavior', 'admissions',
   'feeTypes', 'invoices', 'payments', 'books', 'loans', 'buses', 'announcements', 'events', 'users', 'payroll', 'salaryPays', 'docs'];
 
+/* Desktop app in single-computer mode: the data is kept in a SQLite database (main process, via dalalaStore).
+   Only the records that changed are written, inside one transaction. Browser demo / network modes keep using localStorage. */
+const SQL_LOCAL = !!(window.dalalaStore && !(window.dalalaNet && window.dalalaNet.config && window.dalalaNet.config.mode && window.dalalaNet.config.mode !== 'local'));
+let sqlBase = null;
+function sqlSnap(d) {
+  const b = {};
+  for (const [k, v] of Object.entries(d || {})) {
+    if (k === 'version') continue;
+    if (Array.isArray(v)) b[k] = new Map(v.filter(r => r && r.id).map(r => [r.id, JSON.stringify(r)]));
+    else if (v && typeof v === 'object') b[k] = new Map(Object.entries(v).map(([kk, vv]) => [kk, JSON.stringify(vv)]));
+  }
+  return b;
+}
+function sqlDiff(d) {
+  const ops = [];
+  for (const [k, v] of Object.entries(d)) {
+    if (k === 'version') continue;
+    const old = (sqlBase && sqlBase[k]) || new Map();
+    if (Array.isArray(v)) {
+      const put = [], seen = new Set();
+      for (const r of v) { if (!r || !r.id) continue; seen.add(r.id); const s = JSON.stringify(r); if (old.get(r.id) !== s) put.push(JSON.parse(s)); }
+      const del = [...old.keys()].filter(id => !seen.has(id));
+      if (put.length || del.length) ops.push({ col: k, put, del });
+    } else if (v && typeof v === 'object') {
+      const patch = {}, keys = new Set();
+      for (const [kk, vv] of Object.entries(v)) { keys.add(kk); const s = JSON.stringify(vv); if (s !== undefined && old.get(kk) !== s) patch[kk] = JSON.parse(s); }
+      const unset = [...old.keys()].filter(kk => !keys.has(kk));
+      if (Object.keys(patch).length || unset.length) ops.push({ obj: k, patch, unset });
+    }
+  }
+  return ops;
+}
+
 const DB = {
   d: null,
   load() {
+    if (SQL_LOCAL) {
+      let r = null; try { r = window.dalalaStore.load(); } catch (e) { r = null; }
+      if (r && r.error) { console.error(r.error); r = null; }
+      if (r && r.data && r.data.version) this.d = r.data;
+      else { // first start with SQLite: bring this computer's previous (browser-storage) data along
+        try { this.d = JSON.parse(localStorage.getItem(DB_KEY)); } catch (e) { this.d = null; }
+        if (!this.d || !this.d.version) this.d = seedData();
+        sqlBase = null;
+        if (window.dalalaStore.replace(this.d) === true) { try { localStorage.setItem(DB_KEY + '_migrated', localStorage.getItem(DB_KEY) || ''); localStorage.removeItem(DB_KEY); } catch (e) { /* keep the old copy */ } }
+      }
+      COLS.forEach(c => { this.d[c] = this.d[c] || []; });
+      this.d.att = this.d.att || {}; this.d.marks = this.d.marks || {}; this.d.tt = this.d.tt || {};
+      this.d.settings = Object.assign(defaultSettings(), this.d.settings || {});
+      sqlBase = sqlSnap(this.d); return;
+    }
     try { this.d = JSON.parse(localStorage.getItem(DB_KEY)); } catch (e) { this.d = null; }
     if (!this.d || !this.d.version) { this.d = seedData(); this.save(); }
     COLS.forEach(c => { this.d[c] = this.d[c] || []; });
@@ -15,6 +63,13 @@ const DB = {
     this.d.settings = Object.assign(defaultSettings(), this.d.settings || {});
   },
   save() {
+    if (SQL_LOCAL) {
+      const ops = sqlDiff(this.d); if (!ops.length) return;
+      const r = window.dalalaStore.commit(ops);
+      if (r === true) sqlBase = sqlSnap(this.d);
+      else { console.error(r); if (typeof toast === 'function') toast(t('storageFull'), 'err'); }
+      return;
+    }
     try { localStorage.setItem(DB_KEY, JSON.stringify(this.d)); }
     catch (e) { console.error(e); if (typeof toast === 'function') toast(t('storageFull'), 'err'); }
   },
