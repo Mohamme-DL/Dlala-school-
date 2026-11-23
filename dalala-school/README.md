@@ -183,5 +183,5 @@ dalala-school/
 ## التخزين: SQLite
 البيانات (في الوضع المحلي ووضع المضيف/الخادم) تُحفظ في قاعدة SQLite (`dalala.db`) بدل ملف JSON: كل سجل صف مستقل، وأي تعديل يُكتب داخل معاملة واحدة (انقطاع الكهرباء لا يُفسد القاعدة)، مع نسخة احتياطية يومية (`backups/*.db`) تُحفظ آخر 30 نسخة. عند أول تشغيل تُنقل البيانات القديمة تلقائياً (من `shared-db.json` أو localStorage) وتبقى نسخة منها بامتداد `.migrated`.
 - المكتبة: `better-sqlite3@9.6.0` (مبنية جاهزة لـ Electron 22 على ia32/x64 وتعمل على Windows 7)؛ `npm run native` يجلب النسخة الصحيحة قبل البناء.
-- الخادم المستقل (`node desktop/server.js`) يحتاج `npm install` داخل `desktop` أولاً.
+- الخادم المستقل (`node desktop/server.js`) يحتاج وحدة SQLite مبنية لـ Node نفسه: ثبّتها في مجلد `desktop` بالأمر `npm install better-sqlite3@11 --no-save --userconfig=/dev/null` (في Windows: `npm install better-sqlite3@11 --no-save --ignore-scripts=false` بدون ملف `.npmrc`).
 - الصور والمستندات (IndexedDB في الوضع المحلي) ما زالت خارج SQLite.

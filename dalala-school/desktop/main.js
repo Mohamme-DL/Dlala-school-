@@ -181,5 +181,5 @@ app.whenReady().then(async () => {
   state = lic.check(app.getPath('userData'));
   if (state.ok) createMain(); else createActivation();
 });
-app.on('before-quit', () => { if (server) server.flush(); if (localStore) { try { localStore.backupTo(path.join(app.getPath('userData'), 'local', 'backups', 'local-' + new Date().toISOString().slice(0, 10) + '.db')); } catch (e) { /* ignore */ } try { localStore.close(); } catch (e) { /* ignore */ } } }); // write the shared database to disk before closing
+app.on('before-quit', () => { if (server) server.flush(); if (localStore) { try { localStore.backupTo(path.join(app.getPath('userData'), 'local', 'backups', 'local-' + new Date().toISOString().slice(0, 10) + '.db')); const bd = path.join(app.getPath('userData'), 'local', 'backups'); fs.readdirSync(bd).filter(f => /^local-.*\.db$/.test(f)).sort().slice(0, -30).forEach(f => fs.rmSync(path.join(bd, f), { force: true })); } catch (e) { /* ignore */ } try { localStore.close(); } catch (e) { /* ignore */ } } }); // write the shared database to disk before closing
 app.on('window-all-closed', () => { if (server) server.close(); app.quit(); });

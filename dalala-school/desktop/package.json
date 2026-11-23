@@ -32,7 +32,8 @@
     },
     "files": [
       "app/**/*",
-      "package.json"
+      "package.json",
+      "!**/node_modules/better-sqlite3/{deps,src}/**"
     ],
     "win": {
       "target": [

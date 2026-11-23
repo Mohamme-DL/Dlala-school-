@@ -54,14 +54,15 @@ function open(file) {
       for (const k of c.unset || []) q.delEnt.run(c.obj, k);
       return;
     }
-    for (const id of c.del || []) q.delRec.run(c.col, id);
-    for (const r of c.put || []) q.putRec.run(c.col, r.id, JSON.stringify(r));
+    for (const id of c.del || []) q.delRec.run(c.col, String(id));
+    for (const r of c.put || []) q.putRec.run(c.col, String(r.id), JSON.stringify(r));
   }
   const commitTx = db.transaction((changes, version) => { for (const c of changes) applyChange(c); q.putMeta.run('version', String(version)); });
   const replaceTx = db.transaction((data, version) => {
     db.exec('DELETE FROM rec; DELETE FROM ent; DELETE FROM kv; DELETE FROM objs;'); kinds.clear();
     for (const [name, v] of Object.entries(data || {})) {
-      if (Array.isArray(v)) { for (const r of v) if (r && r.id) q.putRec.run(name, r.id, JSON.stringify(r)); }
+      /* a list of records with ids is stored row by row; anything else (empty list, list of plain values) as one value */
+      if (Array.isArray(v) && v.length && v.every(r => r && typeof r === 'object' && (typeof r.id === 'string' || typeof r.id === 'number'))) { for (const r of v) q.putRec.run(name, String(r.id), JSON.stringify(r)); }
       else setObject(name, v);
     }
     q.putMeta.run('version', String(version));
@@ -76,7 +77,7 @@ function open(file) {
       for (const r of db.prepare('SELECT col, json FROM rec ORDER BY rowid').iterate()) (data[r.col] || (data[r.col] = [])).push(JSON.parse(r.json));
       for (const r of db.prepare('SELECT obj, k, json FROM ent').iterate()) { kinds.add(r.obj); (data[r.obj] || (data[r.obj] = {}))[r.k] = JSON.parse(r.json); }
       for (const r of db.prepare('SELECT name FROM objs').iterate()) if (!data[r.name]) data[r.name] = {};
-      for (const r of db.prepare('SELECT k, json FROM kv').iterate()) data[r.k] = JSON.parse(r.json);
+      for (const r of db.prepare('SELECT k, json FROM kv').iterate()) if (!(r.k in data)) data[r.k] = JSON.parse(r.json); // an empty-list marker never hides rows added later
       return { version: +vr.v || 0, data };
     },
     commit(changes, version) { commitTx(changes, version); },
